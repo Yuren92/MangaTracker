@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/MangaTracker.Api/MangaTracker.Api.csproj" />
+    <Project Path="src/MangaTracker.Application/MangaTracker.Application.csproj" />
+    <Project Path="src/MangaTracker.Domain/MangaTracker.Domain.csproj" />
+    <Project Path="src/MangaTracker.Infrastructure/MangaTracker.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MangaTracker.Tests/MangaTracker.Tests.csproj" />
+  </Folder>
+</Solution>
