@@ -8,6 +8,7 @@ public sealed class MangaCollectionItem
     private readonly List<OwnedVolume> _ownedVolumes = [];
 
     public Guid Id { get; private set; }
+    public Guid UserId { get; private set; }
     public int MalId { get; private set; }
     public string Title { get; private set; }
     public string? ImageUrl { get; private set; }
@@ -23,6 +24,7 @@ public sealed class MangaCollectionItem
 
     public MangaCollectionItem(
         int malId,
+        Guid userId,
         string title,
         string? imageUrl = null,
         int? malTotalVolumes = null,
@@ -38,7 +40,13 @@ public sealed class MangaCollectionItem
             throw new DomainException("Title is required.");
         }
 
+        if (userId == Guid.Empty)
+        {
+            throw new DomainException("User id is required.");
+        }
+
         Id = Guid.NewGuid();
+        UserId = userId;
         MalId = malId;
         Title = title.Trim();
         ImageUrl = imageUrl;

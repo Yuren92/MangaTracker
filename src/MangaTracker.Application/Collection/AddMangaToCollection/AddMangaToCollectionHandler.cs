@@ -17,7 +17,8 @@ public sealed class AddMangaToCollectionHandler
         AddMangaToCollectionCommand command,
         CancellationToken cancellationToken = default)
     {
-        var existingManga = await _repository.GetByMalIdAsync(
+        var existingManga = await _repository.GetByUserIdAndMalIdAsync(
+            command.UserId,
             command.MalId,
             cancellationToken);
 
@@ -27,6 +28,7 @@ public sealed class AddMangaToCollectionHandler
         }
 
         var manga = new MangaCollectionItem(
+            userId: command.UserId,
             malId: command.MalId,
             title: command.Title,
             imageUrl: command.ImageUrl,
@@ -37,6 +39,7 @@ public sealed class AddMangaToCollectionHandler
         await _repository.SaveChangesAsync(cancellationToken);
 
         return new AddMangaToCollectionResult(
+            UserId: manga.UserId,
             Id: manga.Id,
             MalId: manga.MalId,
             Title: manga.Title,

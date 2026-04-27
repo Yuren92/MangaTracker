@@ -1,6 +1,6 @@
 using MangaTracker.Infrastructure;
 using MangaTracker.Application;
-using MangaTracker.Infrastructure;
+using MangaTracker.Api.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,6 +26,8 @@ app.UseHttpsRedirection();
 app.UseAuthorization();
 
 app.MapControllers();
+
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 app.Run();
 

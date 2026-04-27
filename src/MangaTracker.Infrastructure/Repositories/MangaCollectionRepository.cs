@@ -14,13 +14,38 @@ public sealed class MangaCollectionRepository : IMangaCollectionRepository
         _dbContext = dbContext;
     }
 
-    public Task<MangaCollectionItem?> GetByMalIdAsync(
+    public async Task<IReadOnlyCollection<MangaCollectionItem>> GetAllByUserIdAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.MangaCollectionItems
+            .AsNoTracking()
+            .Where(manga => manga.UserId == userId)
+            .ToListAsync(cancellationToken);
+    }
+
+    public Task<MangaCollectionItem?> GetByUserIdAndMalIdAsync(
+        Guid userId,
         int malId,
         CancellationToken cancellationToken = default)
     {
         return _dbContext.MangaCollectionItems
-            .FirstOrDefaultAsync(manga => manga.MalId == malId, cancellationToken);
+            .FirstOrDefaultAsync(
+                manga => manga.UserId == userId && manga.MalId == malId,
+                cancellationToken);
     }
+
+    public Task<MangaCollectionItem?> GetByUserIdAndIdAsync(
+        Guid userId,
+        Guid id,
+        CancellationToken cancellationToken = default)
+        {
+            return _dbContext.MangaCollectionItems
+                .Include(manga => manga.OwnedVolumes)
+                .FirstOrDefaultAsync(
+                    manga => manga.UserId == userId && manga.Id == id,
+                    cancellationToken);
+        }
 
     public async Task AddAsync(
         MangaCollectionItem manga,

@@ -4,7 +4,12 @@ namespace MangaTracker.Application.Abstractions;
 
 public interface IMangaCollectionRepository
 {
-    Task<MangaCollectionItem?> GetByMalIdAsync(
+    Task<IReadOnlyCollection<MangaCollectionItem>> GetAllByUserIdAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default);
+
+    Task<MangaCollectionItem?> GetByUserIdAndMalIdAsync(
+        Guid userId,
         int malId,
         CancellationToken cancellationToken = default);
 
@@ -13,5 +18,10 @@ public interface IMangaCollectionRepository
         CancellationToken cancellationToken = default);
 
     Task SaveChangesAsync(
+        CancellationToken cancellationToken = default);
+
+    Task<MangaCollectionItem?> GetByUserIdAndIdAsync(
+        Guid userId,
+        Guid id,
         CancellationToken cancellationToken = default);
 }

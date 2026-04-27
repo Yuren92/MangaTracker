@@ -10,7 +10,9 @@ public class MangaCollectionItemTests
     public void AddOwnedVolume_WithValidVolume_ShouldAddVolume()
     {
         // Arrange
+        Guid userId = Guid.NewGuid();
         var manga = new MangaCollectionItem(
+            userId: userId,
             malId: 2,
             title: "Berserk",
             imageUrl: null,
@@ -32,8 +34,10 @@ public class MangaCollectionItemTests
     public void AddOwnedVolume_WithDuplicatedVolume_ShouldThrowDomainException()
     {
         // Arrange
+
+        Guid userId = Guid.NewGuid();
         var manga = new MangaCollectionItem(
-            malId: 2,
+            userId: userId, malId: 2,
             title: "Berserk",
             imageUrl: null,
             malTotalVolumes: null,
@@ -55,8 +59,9 @@ public class MangaCollectionItemTests
     public void AddOwnedVolume_WhenVolumeIsGreaterThanKnownTotal_ShouldThrowDomainException()
     {
         // Arrange
+        Guid userId = Guid.NewGuid();
         var manga = new MangaCollectionItem(
-            malId: 2,
+            userId: userId, malId: 2,
             title: "Berserk",
             imageUrl: null,
             malTotalVolumes: null,
@@ -76,8 +81,9 @@ public class MangaCollectionItemTests
     public void AddOwnedVolume_WhenTotalIsUnknown_ShouldAllowAnyPositiveVolume()
     {
         // Arrange
+        Guid userId = Guid.NewGuid();
         var manga = new MangaCollectionItem(
-            malId: 2,
+            userId: userId, malId: 2,
             title: "Berserk",
             imageUrl: null,
             malTotalVolumes: null,
@@ -98,8 +104,9 @@ public class MangaCollectionItemTests
     public void GetMissingVolumeNumbers_WhenTotalIsKnown_ShouldReturnMissingVolumesUntilTotal()
     {
         // Arrange
+        Guid userId = Guid.NewGuid();
         var manga = new MangaCollectionItem(
-            malId: 2,
+            userId: userId, malId: 2,
             title: "Berserk",
             imageUrl: null,
             malTotalVolumes: null,
@@ -120,8 +127,9 @@ public class MangaCollectionItemTests
     public void GetMissingVolumeNumbers_WhenTotalIsUnknown_ShouldReturnOnlyGapsUntilHighestOwnedVolume()
     {
         // Arrange
+        Guid userId = Guid.NewGuid();
         var manga = new MangaCollectionItem(
-            malId: 2,
+            userId: userId, malId: 2,
             title: "Berserk",
             imageUrl: null,
             malTotalVolumes: null,
@@ -143,8 +151,9 @@ public class MangaCollectionItemTests
     public void GetMissingVolumeNumbers_WhenNoVolumesAreOwned_ShouldReturnEmptyCollection()
     {
         // Arrange
+        Guid userId = Guid.NewGuid();
         var manga = new MangaCollectionItem(
-            malId: 2,
+            userId: userId, malId: 2,
             title: "Berserk",
             imageUrl: null,
             malTotalVolumes: null,
@@ -161,8 +170,9 @@ public class MangaCollectionItemTests
     public void RemoveOwnedVolume_WhenVolumeExists_ShouldRemoveVolume()
     {
         // Arrange
+        Guid userId = Guid.NewGuid();
         var manga = new MangaCollectionItem(
-            malId: 2,
+            userId: userId, malId: 2,
             title: "Berserk",
             imageUrl: null,
             malTotalVolumes: null,
@@ -181,8 +191,9 @@ public class MangaCollectionItemTests
     public void RemoveOwnedVolume_WhenVolumeDoesNotExist_ShouldThrowDomainException()
     {
         // Arrange
+        Guid userId = Guid.NewGuid();
         var manga = new MangaCollectionItem(
-            malId: 2,
+            userId: userId, malId: 2,
             title: "Berserk",
             imageUrl: null,
             malTotalVolumes: null,
@@ -200,8 +211,9 @@ public class MangaCollectionItemTests
     public void SetCustomTotalVolumes_WithValidTotal_ShouldUpdateCustomTotalVolumes()
     {
         // Arrange
+        Guid userId = Guid.NewGuid();
         var manga = new MangaCollectionItem(
-            malId: 2,
+            userId: userId, malId: 2,
             title: "Berserk",
             imageUrl: null,
             malTotalVolumes: null,
@@ -222,8 +234,9 @@ public class MangaCollectionItemTests
     public void SetCustomTotalVolumes_WithNullZeroOrNegativeValue_ShouldSetTotalAsUnknown(int? totalVolumes)
     {
         // Arrange
+        Guid userId = Guid.NewGuid();
         var manga = new MangaCollectionItem(
-            malId: 2,
+            userId: userId, malId: 2,
             title: "Berserk",
             imageUrl: null,
             malTotalVolumes: null,
@@ -241,8 +254,9 @@ public class MangaCollectionItemTests
     public void SetCustomTotalVolumes_WhenTotalIsLowerThanHighestOwnedVolume_ShouldThrowDomainException()
     {
         // Arrange
+        Guid userId = Guid.NewGuid();
         var manga = new MangaCollectionItem(
-            malId: 2,
+            userId: userId, malId: 2,
             title: "Berserk",
             imageUrl: null,
             malTotalVolumes: null,

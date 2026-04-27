@@ -14,6 +14,7 @@ public class AddMangaToCollectionHandlerTests
         var handler = new AddMangaToCollectionHandler(repository);
 
         var command = new AddMangaToCollectionCommand(
+            UserId: Guid.NewGuid(),
             MalId: 2,
             Title: "Berserk",
             ImageUrl: "https://example.com/berserk.jpg",
@@ -39,6 +40,7 @@ public class AddMangaToCollectionHandlerTests
         var handler = new AddMangaToCollectionHandler(repository);
 
         var command = new AddMangaToCollectionCommand(
+            UserId: Guid.NewGuid(),
             MalId: 2,
             Title: "Berserk",
             ImageUrl: null,

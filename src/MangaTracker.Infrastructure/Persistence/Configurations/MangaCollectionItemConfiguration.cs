@@ -13,10 +13,13 @@ public sealed class MangaCollectionItemConfiguration : IEntityTypeConfiguration<
 
         builder.HasKey(manga => manga.Id);
 
+        builder.Property(manga => manga.UserId)
+            .IsRequired();
+
         builder.Property(manga => manga.MalId)
             .IsRequired();
 
-        builder.HasIndex(manga => manga.MalId)
+        builder.HasIndex(manga => new { manga.UserId, manga.MalId })
             .IsUnique();
 
         builder.Property(manga => manga.Title)
