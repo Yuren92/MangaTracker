@@ -4,6 +4,8 @@ using MangaTracker.Application.Collection.GetMangaCollection;
 using MangaTracker.Application.Collection.GetMangaCollectionItem;
 using MangaTracker.Application.Collection.RemoveOwnedVolumeFromCollection;
 using MangaTracker.Application.Collection.UpdateCustomTotalVolumes;
+using MangaTracker.Application.Mal.GetMalMangaDetail;
+using MangaTracker.Application.Mal.SearchMalManga;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MangaTracker.Application;
@@ -18,6 +20,8 @@ public static class DependencyInjection
         services.AddScoped<RemoveOwnedVolumeFromCollectionHandler>();
         services.AddScoped<GetMangaCollectionItemHandler>();
         services.AddScoped<UpdateCustomTotalVolumesHandler>();
+        services.AddScoped<SearchMalMangaHandler>();
+        services.AddScoped<GetMalMangaDetailHandler>();
 
         return services;
     }

@@ -1,6 +1,8 @@
 using MangaTracker.Infrastructure;
 using MangaTracker.Application;
 using MangaTracker.Api.Middleware;
+using MangaTracker.Api.Auth;
+using MangaTracker.Application.Abstractions.Auth;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,6 +14,8 @@ builder.Services.AddOpenApi();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+
+builder.Services.AddScoped<ICurrentUserService, DemoCurrentUserService>();
 
 var app = builder.Build();
 

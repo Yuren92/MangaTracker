@@ -1,5 +1,5 @@
 using MangaTracker.Application.Abstractions;
-using MangaTracker.Domain.Common;
+using MangaTracker.Application.Common.Exceptions;
 using MangaTracker.Domain.ValueObjects;
 
 namespace MangaTracker.Application.Collection.RemoveOwnedVolumeFromCollection;
@@ -24,7 +24,7 @@ public sealed class RemoveOwnedVolumeFromCollectionHandler
 
         if (manga is null)
         {
-            throw new DomainException("Manga collection item was not found.");
+            throw new NotFoundException("Manga collection item was not found.");
         }
 
         var volumeNumber = new VolumeNumber(command.VolumeNumber);

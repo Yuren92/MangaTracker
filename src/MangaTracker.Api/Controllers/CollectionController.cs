@@ -4,6 +4,7 @@ using MangaTracker.Application.Collection.GetMangaCollection;
 using MangaTracker.Application.Collection.GetMangaCollectionItem;
 using MangaTracker.Application.Collection.RemoveOwnedVolumeFromCollection;
 using MangaTracker.Application.Collection.UpdateCustomTotalVolumes;
+using MangaTracker.Application.Abstractions.Auth;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MangaTracker.Api.Controllers;
@@ -18,9 +19,7 @@ public sealed class CollectionController : ControllerBase
     private readonly RemoveOwnedVolumeFromCollectionHandler _removeOwnedVolumeFromCollectionHandler;
     private readonly GetMangaCollectionItemHandler _getMangaCollectionItemHandler;
     private readonly UpdateCustomTotalVolumesHandler _updateCustomTotalVolumesHandler;
-
-    private static readonly Guid DemoUserId =
-        Guid.Parse("00000000-0000-0000-0000-000000000001");
+    private readonly ICurrentUserService _currentUserService;
 
 
     public CollectionController(AddMangaToCollectionHandler addMangaToCollectionHandler,
@@ -28,7 +27,8 @@ public sealed class CollectionController : ControllerBase
         AddOwnedVolumeToCollectionHandler addOwnedVolumeToCollectionHandler,
         RemoveOwnedVolumeFromCollectionHandler removeOwnedVolumeFromCollectionHandler,
         GetMangaCollectionItemHandler getMangaCollectionItemHandler,
-        UpdateCustomTotalVolumesHandler updateCustomTotalVolumesHandler)
+        UpdateCustomTotalVolumesHandler updateCustomTotalVolumesHandler,
+        ICurrentUserService currentUserService)
     {
         _addMangaToCollectionHandler = addMangaToCollectionHandler;
         _getMangaCollectionHandler = getMangaCollectionHandler;
@@ -36,6 +36,7 @@ public sealed class CollectionController : ControllerBase
         _removeOwnedVolumeFromCollectionHandler = removeOwnedVolumeFromCollectionHandler;
         _getMangaCollectionItemHandler = getMangaCollectionItemHandler;
         _updateCustomTotalVolumesHandler = updateCustomTotalVolumesHandler;
+        _currentUserService = currentUserService;
 
     }
 
@@ -43,7 +44,7 @@ public sealed class CollectionController : ControllerBase
     public async Task<ActionResult<GetMangaCollectionResult>> GetMangaCollection(
      CancellationToken cancellationToken)
     {
-        var result = await _getMangaCollectionHandler.HandleAsync(DemoUserId,cancellationToken);
+        var result = await _getMangaCollectionHandler.HandleAsync(_currentUserService.UserId, cancellationToken);
 
         return Ok(result);
     }
@@ -54,11 +55,8 @@ public sealed class CollectionController : ControllerBase
         CancellationToken cancellationToken)
     {
         var command = new AddMangaToCollectionCommand(
-            UserId: DemoUserId,
+            UserId: _currentUserService.UserId,
             MalId: request.MalId,
-            Title: request.Title,
-            ImageUrl: request.ImageUrl,
-            MalTotalVolumes: request.MalTotalVolumes,
             CustomTotalVolumes: request.CustomTotalVolumes);
 
         var result = await _addMangaToCollectionHandler.HandleAsync(
@@ -78,7 +76,7 @@ public sealed class CollectionController : ControllerBase
         CancellationToken cancellationToken)
         {
             var command = new AddOwnedVolumeToCollectionCommand(
-                UserId: DemoUserId,
+                UserId: _currentUserService.UserId,
                 CollectionItemId: id,
                 VolumeNumber: request.VolumeNumber,
                 PurchaseDate: request.PurchaseDate,
@@ -99,7 +97,7 @@ public sealed class CollectionController : ControllerBase
         CancellationToken cancellationToken)
         {
             var command = new RemoveOwnedVolumeFromCollectionCommand(
-                UserId: DemoUserId,
+                UserId: _currentUserService.UserId,
                 CollectionItemId: id,
                 VolumeNumber: volumeNumber);
 
@@ -116,7 +114,7 @@ public sealed class CollectionController : ControllerBase
         CancellationToken cancellationToken)
         {
             var result = await _getMangaCollectionItemHandler.HandleAsync(
-                DemoUserId,
+                _currentUserService.UserId,
                 id,
                 cancellationToken);
 
@@ -131,7 +129,7 @@ public sealed class CollectionController : ControllerBase
         CancellationToken cancellationToken)
         {
             var command = new UpdateCustomTotalVolumesCommand(
-                UserId: DemoUserId,
+                UserId: _currentUserService.UserId,
                 CollectionItemId: id,
                 TotalVolumes: request.TotalVolumes);
 
@@ -145,9 +143,6 @@ public sealed class CollectionController : ControllerBase
  }
 public sealed record AddMangaToCollectionRequest(
     int MalId,
-    string Title,
-    string? ImageUrl,
-    int? MalTotalVolumes,
     int? CustomTotalVolumes
 );
 

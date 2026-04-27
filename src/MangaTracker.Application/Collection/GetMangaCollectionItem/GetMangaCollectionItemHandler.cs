@@ -1,6 +1,6 @@
 using MangaTracker.Application.Abstractions;
 using MangaTracker.Application.Collection.Dtos;
-using MangaTracker.Domain.Common;
+using MangaTracker.Application.Common.Exceptions;
 
 namespace MangaTracker.Application.Collection.GetMangaCollectionItem;
 
@@ -25,7 +25,7 @@ public sealed class GetMangaCollectionItemHandler
 
         if (manga is null)
         {
-            throw new DomainException("Manga collection item was not found.");
+            throw new NotFoundException("Manga collection item was not found.");
         }
 
         var ownedVolumes = manga.OwnedVolumes

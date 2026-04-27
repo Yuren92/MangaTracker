@@ -1,4 +1,5 @@
 using MangaTracker.Application.Collection.AddMangaToCollection;
+using MangaTracker.Application.Mal.Dtos;
 using MangaTracker.Domain.Common;
 using MangaTracker.Tests.Fakes;
 
@@ -11,14 +12,23 @@ public class AddMangaToCollectionHandlerTests
     {
         // Arrange
         var repository = new FakeMangaCollectionRepository();
-        var handler = new AddMangaToCollectionHandler(repository);
+        var malClient = new FakeMalMangaClient();
+        var handler = new AddMangaToCollectionHandler(repository, malClient);
+        var userId = Guid.NewGuid();
 
-        var command = new AddMangaToCollectionCommand(
-            UserId: Guid.NewGuid(),
+        malClient.AddManga(new MalMangaDetailDto(
             MalId: 2,
             Title: "Berserk",
             ImageUrl: "https://example.com/berserk.jpg",
-            MalTotalVolumes: 0,
+            TotalVolumes: 0,
+            TotalChapters: 0,
+            Status: "currently_publishing",
+            Synopsis: "Dark fantasy manga.",
+            Recommendations: []));
+
+        var command = new AddMangaToCollectionCommand(
+            UserId: userId,
+            MalId: 2,
             CustomTotalVolumes: 42);
 
         // Act
@@ -33,18 +43,27 @@ public class AddMangaToCollectionHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_WhenMangaAlreadyExists_ShouldThrowDomainException()
+    public async Task HandleAsync_WhenMangaAlreadyExistsForSameUser_ShouldThrowDomainException()
     {
         // Arrange
         var repository = new FakeMangaCollectionRepository();
-        var handler = new AddMangaToCollectionHandler(repository);
+        var malClient = new FakeMalMangaClient();
+        var handler = new AddMangaToCollectionHandler(repository, malClient);
+        var userId = Guid.NewGuid();
 
-        var command = new AddMangaToCollectionCommand(
-            UserId: Guid.NewGuid(),
+        malClient.AddManga(new MalMangaDetailDto(
             MalId: 2,
             Title: "Berserk",
             ImageUrl: null,
-            MalTotalVolumes: 0,
+            TotalVolumes: 0,
+            TotalChapters: 0,
+            Status: "currently_publishing",
+            Synopsis: null,
+            Recommendations: []));
+
+        var command = new AddMangaToCollectionCommand(
+            UserId: userId,
+            MalId: 2,
             CustomTotalVolumes: 42);
 
         await handler.HandleAsync(command);
@@ -55,5 +74,27 @@ public class AddMangaToCollectionHandlerTests
 
         // Assert
         Assert.Equal("Manga is already in collection.", exception.Message);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenMangaDoesNotExistInMal_ShouldThrowDomainException()
+    {
+        // Arrange
+        var repository = new FakeMangaCollectionRepository();
+        var malClient = new FakeMalMangaClient();
+        var handler = new AddMangaToCollectionHandler(repository, malClient);
+        var userId = Guid.NewGuid();
+
+        var command = new AddMangaToCollectionCommand(
+            UserId: userId,
+            MalId: 999999,
+            CustomTotalVolumes: null);
+
+        // Act
+        var exception = await Assert.ThrowsAsync<DomainException>(() =>
+            handler.HandleAsync(command));
+
+        // Assert
+        Assert.Equal("Manga was not found in MyAnimeList.", exception.Message);
     }
 }

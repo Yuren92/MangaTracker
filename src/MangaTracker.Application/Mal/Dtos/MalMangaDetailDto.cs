@@ -7,5 +7,6 @@ public sealed record MalMangaDetailDto(
     int? TotalVolumes,
     int? TotalChapters,
     string? Status,
-    string? Synopsis
+    string? Synopsis,
+    IReadOnlyCollection<MalMangaRecommendationDto> Recommendations
 );

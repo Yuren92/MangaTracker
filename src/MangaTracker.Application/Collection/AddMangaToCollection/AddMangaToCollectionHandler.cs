@@ -1,5 +1,5 @@
 using MangaTracker.Application.Abstractions;
-using MangaTracker.Domain.Common;
+using MangaTracker.Application.Common.Exceptions;
 using MangaTracker.Domain.Entities;
 
 namespace MangaTracker.Application.Collection.AddMangaToCollection;
@@ -7,10 +7,14 @@ namespace MangaTracker.Application.Collection.AddMangaToCollection;
 public sealed class AddMangaToCollectionHandler
 {
     private readonly IMangaCollectionRepository _repository;
+    private readonly IMalMangaClient _malMangaClient;
 
-    public AddMangaToCollectionHandler(IMangaCollectionRepository repository)
+    public AddMangaToCollectionHandler(
+        IMangaCollectionRepository repository,
+        IMalMangaClient malMangaClient)
     {
         _repository = repository;
+        _malMangaClient = malMangaClient;
     }
 
     public async Task<AddMangaToCollectionResult> HandleAsync(
@@ -24,26 +28,35 @@ public sealed class AddMangaToCollectionHandler
 
         if (existingManga is not null)
         {
-            throw new DomainException("Manga is already in collection.");
+            throw new ConflictException("Manga is already in collection.");
+        }
+
+        var malManga = await _malMangaClient.GetMangaDetailAsync(
+            command.MalId,
+            cancellationToken);
+
+        if (malManga is null)
+        {
+            throw new NotFoundException("Manga was not found in MyAnimeList.");
         }
 
         var manga = new MangaCollectionItem(
             userId: command.UserId,
-            malId: command.MalId,
-            title: command.Title,
-            imageUrl: command.ImageUrl,
-            malTotalVolumes: command.MalTotalVolumes,
+            malId: malManga.MalId,
+            title: malManga.Title,
+            imageUrl: malManga.ImageUrl,
+            malTotalVolumes: malManga.TotalVolumes,
             customTotalVolumes: command.CustomTotalVolumes);
 
         await _repository.AddAsync(manga, cancellationToken);
         await _repository.SaveChangesAsync(cancellationToken);
 
         return new AddMangaToCollectionResult(
-            UserId: manga.UserId,
             Id: manga.Id,
+            UserId: manga.UserId,
             MalId: manga.MalId,
             Title: manga.Title,
             ImageUrl: manga.ImageUrl,
             EffectiveTotalVolumes: manga.EffectiveTotalVolumes);
-    }
+        }
 }

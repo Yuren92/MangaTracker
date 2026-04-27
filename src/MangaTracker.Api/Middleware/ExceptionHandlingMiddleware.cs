@@ -1,3 +1,4 @@
+using MangaTracker.Application.Common.Exceptions;
 using MangaTracker.Domain.Common;
 using Microsoft.AspNetCore.Mvc;
 
@@ -22,9 +23,37 @@ public sealed class ExceptionHandlingMiddleware
         {
             await _next(context);
         }
+        catch (ValidationException exception)
+        {
+            await HandleExceptionAsync(
+                context,
+                exception,
+                StatusCodes.Status400BadRequest,
+                "Validation error");
+        }
+        catch (NotFoundException exception)
+        {
+            await HandleExceptionAsync(
+                context,
+                exception,
+                StatusCodes.Status404NotFound,
+                "Resource not found");
+        }
+        catch (ConflictException exception)
+        {
+            await HandleExceptionAsync(
+                context,
+                exception,
+                StatusCodes.Status409Conflict,
+                "Conflict");
+        }
         catch (DomainException exception)
         {
-            await HandleDomainExceptionAsync(context, exception);
+            await HandleExceptionAsync(
+                context,
+                exception,
+                StatusCodes.Status400BadRequest,
+                "Domain error");
         }
         catch (Exception exception)
         {
@@ -32,16 +61,18 @@ public sealed class ExceptionHandlingMiddleware
         }
     }
 
-    private static async Task HandleDomainExceptionAsync(
+    private static async Task HandleExceptionAsync(
         HttpContext context,
-        DomainException exception)
+        Exception exception,
+        int statusCode,
+        string title)
     {
-        context.Response.StatusCode = StatusCodes.Status409Conflict;
+        context.Response.StatusCode = statusCode;
 
         var problemDetails = new ProblemDetails
         {
-            Title = "Domain error",
-            Status = StatusCodes.Status409Conflict,
+            Title = title,
+            Status = statusCode,
             Detail = exception.Message
         };
 
