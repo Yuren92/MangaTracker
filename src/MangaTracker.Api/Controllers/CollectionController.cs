@@ -5,11 +5,13 @@ using MangaTracker.Application.Collection.GetMangaCollectionItem;
 using MangaTracker.Application.Collection.RemoveOwnedVolumeFromCollection;
 using MangaTracker.Application.Collection.UpdateCustomTotalVolumes;
 using MangaTracker.Application.Abstractions.Auth;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MangaTracker.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/collection")]
 public sealed class CollectionController : ControllerBase
 {

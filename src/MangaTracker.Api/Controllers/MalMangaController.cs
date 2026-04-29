@@ -1,11 +1,13 @@
 using MangaTracker.Application.Abstractions.Auth;
 using MangaTracker.Application.Mal.GetMalMangaDetail;
 using MangaTracker.Application.Mal.SearchMalManga;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MangaTracker.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/mal/manga")]
 public sealed class MalMangaController : ControllerBase
 {

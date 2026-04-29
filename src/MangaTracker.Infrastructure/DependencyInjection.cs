@@ -1,10 +1,12 @@
 using MangaTracker.Application.Abstractions;
+using MangaTracker.Application.Abstractions.Auth;
+using MangaTracker.Infrastructure.Auth;
+using MangaTracker.Infrastructure.ExternalServices.MyAnimeList;
 using MangaTracker.Infrastructure.Persistence;
+using MangaTracker.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using MangaTracker.Infrastructure.Repositories;
-using MangaTracker.Infrastructure.ExternalServices.MyAnimeList;
 
 namespace MangaTracker.Infrastructure;
 
@@ -20,9 +22,16 @@ public static class DependencyInjection
                 options.UseSqlServer(connectionString));
 
             services.AddScoped<IMangaCollectionRepository, MangaCollectionRepository>();
+            services.AddScoped<IUserRepository, UserRepository>();
+
+            services.Configure<JwtOptions>(
+            configuration.GetSection("Jwt"));
+
+            services.AddScoped<IPasswordHasher, PasswordHasher>();
+            services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 
             services.Configure<MalOptions>(
-                configuration.GetSection("MyAnimeList"));
+            configuration.GetSection("MyAnimeList"));
 
             services.AddHttpClient<IMalMangaClient, MalMangaClient>((serviceProvider, client) =>
             {

@@ -21,6 +21,11 @@ public sealed class MangaCollectionItemConfiguration : IEntityTypeConfiguration<
 
         builder.HasIndex(manga => new { manga.UserId, manga.MalId })
             .IsUnique();
+        builder
+            .HasOne<User>()
+            .WithMany()
+            .HasForeignKey(manga => manga.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         builder.Property(manga => manga.Title)
             .IsRequired()

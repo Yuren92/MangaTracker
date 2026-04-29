@@ -1,3 +1,6 @@
+using MangaTracker.Application.Auth.GetCurrentUser;
+using MangaTracker.Application.Auth.LoginUser;
+using MangaTracker.Application.Auth.RegisterUser;
 using MangaTracker.Application.Collection.AddMangaToCollection;
 using MangaTracker.Application.Collection.AddOwnedVolumeToCollection;
 using MangaTracker.Application.Collection.GetMangaCollection;
@@ -22,6 +25,9 @@ public static class DependencyInjection
         services.AddScoped<UpdateCustomTotalVolumesHandler>();
         services.AddScoped<SearchMalMangaHandler>();
         services.AddScoped<GetMalMangaDetailHandler>();
+        services.AddScoped<RegisterUserHandler>();
+        services.AddScoped<LoginUserHandler>();
+        services.AddScoped<GetCurrentUserHandler>();
 
         return services;
     }

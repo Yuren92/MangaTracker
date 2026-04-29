@@ -12,6 +12,8 @@ public sealed class MangaTrackerDbContext : DbContext
 
     public DbSet<MangaCollectionItem> MangaCollectionItems => Set<MangaCollectionItem>();
 
+    public DbSet<User> Users => Set<User>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(MangaTrackerDbContext).Assembly);
