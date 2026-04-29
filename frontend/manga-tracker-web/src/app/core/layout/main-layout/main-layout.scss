@@ -1,0 +1,43 @@
+.app-shell {
+  min-height: 100vh;
+  background: #f6f7fb;
+  color: #1f2937;
+}
+
+.app-header {
+  height: 64px;
+  padding: 0 32px;
+  background: #111827;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.brand {
+  color: white;
+  text-decoration: none;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.nav {
+  display: flex;
+  gap: 20px;
+
+  a {
+    color: #d1d5db;
+    text-decoration: none;
+    font-weight: 500;
+
+    &:hover {
+      color: white;
+    }
+  }
+}
+
+.app-main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px;
+}
