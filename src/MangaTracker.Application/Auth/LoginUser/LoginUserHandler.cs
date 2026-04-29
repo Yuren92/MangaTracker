@@ -1,6 +1,7 @@
 ﻿using MangaTracker.Application.Abstractions;
 using MangaTracker.Application.Abstractions.Auth;
 using MangaTracker.Application.Common.Exceptions;
+using MangaTracker.Application.Common.Security;
 
 namespace MangaTracker.Application.Auth.LoginUser;
 
@@ -24,12 +25,7 @@ public sealed class LoginUserHandler
         LoginUserCommand command,
         CancellationToken cancellationToken = default)
     {
-        var normalizedEmail = command.Email.Trim().ToLowerInvariant();
-
-        if (string.IsNullOrWhiteSpace(normalizedEmail))
-        {
-            throw new ValidationException("Email is required.");
-        }
+        var normalizedEmail = EmailValidator.ValidateAndNormalize(command.Email);
 
         if (string.IsNullOrWhiteSpace(command.Password))
         {
@@ -52,6 +48,11 @@ public sealed class LoginUserHandler
         if (!isPasswordValid)
         {
             throw new ValidationException("Invalid email or password.");
+        }
+
+        if (!user.IsEmailConfirmed)
+        {
+            throw new ValidationException("Email is not confirmed.");
         }
 
         var accessToken = _jwtTokenGenerator.GenerateToken(user);

@@ -43,4 +43,17 @@ public sealed class UserRepository : IUserRepository
     {
         return _dbContext.SaveChangesAsync(cancellationToken);
     }
+
+    public async Task DeleteUnconfirmedUsersOlderThanAsync(
+    DateTimeOffset cutoff,
+    CancellationToken cancellationToken = default)
+    {
+        var usersToDelete = await _dbContext.Users
+            .Where(user =>
+                !user.IsEmailConfirmed &&
+                user.CreatedAt < cutoff)
+            .ToListAsync(cancellationToken);
+
+        _dbContext.Users.RemoveRange(usersToDelete);
+    }
 }

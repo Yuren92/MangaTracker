@@ -6,6 +6,8 @@ namespace MangaTracker.Application.Mal.SearchMalManga;
 public sealed class SearchMalMangaHandler
 {
     private const int MinSearchLength = 3;
+    private const int DefaultLimit = 10;
+    private const int MaxLimit = 20;
 
     private readonly IMalMangaClient _malMangaClient;
 
@@ -16,7 +18,7 @@ public sealed class SearchMalMangaHandler
 
     public async Task<SearchMalMangaResult> HandleAsync(
         string query,
-        int limit = 10,
+        int limit = DefaultLimit,
         CancellationToken cancellationToken = default)
     {
         var cleanQuery = query.Trim();
@@ -26,11 +28,23 @@ public sealed class SearchMalMangaHandler
             throw new ValidationException($"Search query must have at least {MinSearchLength} characters.");
         }
 
+        var normalizedLimit = NormalizeLimit(limit);
+
         var items = await _malMangaClient.SearchMangaAsync(
             cleanQuery,
-            limit,
+            normalizedLimit,
             cancellationToken);
 
         return new SearchMalMangaResult(items);
+    }
+
+    private static int NormalizeLimit(int limit)
+    {
+        if (limit <= 0)
+        {
+            return DefaultLimit;
+        }
+
+        return Math.Min(limit, MaxLimit);
     }
 }

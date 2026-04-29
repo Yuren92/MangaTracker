@@ -4,6 +4,9 @@ using MangaTracker.Infrastructure.Auth;
 using MangaTracker.Infrastructure.ExternalServices.MyAnimeList;
 using MangaTracker.Infrastructure.Persistence;
 using MangaTracker.Infrastructure.Repositories;
+using MangaTracker.Application.Abstractions.Email;
+using MangaTracker.Infrastructure.Email;
+using MangaTracker.Infrastructure.BackgroundJobs;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -23,9 +26,23 @@ public static class DependencyInjection
 
             services.AddScoped<IMangaCollectionRepository, MangaCollectionRepository>();
             services.AddScoped<IUserRepository, UserRepository>();
+            services.AddScoped<IUserTokenRepository, UserTokenRepository>();
+
+            services.Configure<AuthLinkOptions>(
+                configuration.GetSection("AuthLinks"));
+
+            services.Configure<AuthCleanupOptions>(
+                configuration.GetSection("AuthCleanup"));
+
+            services.AddHostedService<AuthCleanupBackgroundService>();
+
+            services.AddScoped<ITokenGenerator, TokenGenerator>();
+            services.AddScoped<ITokenHasher, TokenHasher>();
+            services.AddScoped<IAuthLinkBuilder, AuthLinkBuilder>();
+            services.AddScoped<IEmailSender, ConsoleEmailSender>();
 
             services.Configure<JwtOptions>(
-            configuration.GetSection("Jwt"));
+                configuration.GetSection("Jwt"));
 
             services.AddScoped<IPasswordHasher, PasswordHasher>();
             services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();

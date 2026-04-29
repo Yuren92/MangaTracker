@@ -3,6 +3,7 @@ using MangaTracker.Application.Mal.GetMalMangaDetail;
 using MangaTracker.Application.Mal.SearchMalManga;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace MangaTracker.Api.Controllers;
 
@@ -22,6 +23,7 @@ public sealed class MalMangaController : ControllerBase
         _currentUserService = currentUserService;
     }
 
+    [EnableRateLimiting("external-api")]
     [HttpGet("search")]
     public async Task<ActionResult<SearchMalMangaResult>> SearchManga(
         [FromQuery] string query,
@@ -36,6 +38,7 @@ public sealed class MalMangaController : ControllerBase
         return Ok(result);
     }
 
+    [EnableRateLimiting("external-api")]
     [HttpGet("{malId:int}")]
     public async Task<ActionResult<GetMalMangaDetailResult>> GetMangaDetail(
         int malId,

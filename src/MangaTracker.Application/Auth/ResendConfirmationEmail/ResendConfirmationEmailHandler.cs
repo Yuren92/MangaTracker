@@ -6,24 +6,25 @@ using MangaTracker.Application.Common.Security;
 using MangaTracker.Domain.Entities;
 using MangaTracker.Domain.Enums;
 
-namespace MangaTracker.Application.Auth.RegisterUser;
+namespace MangaTracker.Application.Auth.ResendConfirmationEmail;
 
-public sealed class RegisterUserHandler
+public sealed class ResendConfirmationEmailHandler
 {
     private static readonly TimeSpan EmailConfirmationTokenLifetime = TimeSpan.FromHours(24);
 
+    private const string GenericMessage =
+        "If the email exists and is not confirmed, a confirmation email has been sent.";
+
     private readonly IUserRepository _userRepository;
     private readonly IUserTokenRepository _userTokenRepository;
-    private readonly IPasswordHasher _passwordHasher;
     private readonly ITokenGenerator _tokenGenerator;
     private readonly ITokenHasher _tokenHasher;
     private readonly IAuthLinkBuilder _authLinkBuilder;
     private readonly IEmailSender _emailSender;
 
-    public RegisterUserHandler(
+    public ResendConfirmationEmailHandler(
         IUserRepository userRepository,
         IUserTokenRepository userTokenRepository,
-        IPasswordHasher passwordHasher,
         ITokenGenerator tokenGenerator,
         ITokenHasher tokenHasher,
         IAuthLinkBuilder authLinkBuilder,
@@ -31,38 +32,31 @@ public sealed class RegisterUserHandler
     {
         _userRepository = userRepository;
         _userTokenRepository = userTokenRepository;
-        _passwordHasher = passwordHasher;
         _tokenGenerator = tokenGenerator;
         _tokenHasher = tokenHasher;
         _authLinkBuilder = authLinkBuilder;
         _emailSender = emailSender;
     }
 
-    public async Task<RegisterUserResult> HandleAsync(
-        RegisterUserCommand command,
+    public async Task<ResendConfirmationEmailResult> HandleAsync(
+        ResendConfirmationEmailCommand command,
         CancellationToken cancellationToken = default)
     {
         var normalizedEmail = EmailValidator.ValidateAndNormalize(command.Email);
 
-        PasswordValidator.Validate(command.Password);
-
-        var existingUser = await _userRepository.GetByEmailAsync(
+        var user = await _userRepository.GetByEmailAsync(
             normalizedEmail,
             cancellationToken);
 
-        if (existingUser is not null)
+        if (user is null || user.IsEmailConfirmed)
         {
-            throw new ConflictException("Email is already registered.");
+            return new ResendConfirmationEmailResult(GenericMessage);
         }
 
-        var passwordHash = _passwordHasher.HashPassword(command.Password);
-
-        var user = new User(
-            email: normalizedEmail,
-            passwordHash: passwordHash);
-
-        await _userRepository.AddAsync(user, cancellationToken);
-
+        await _userTokenRepository.MarkActiveTokensAsUsedAsync(
+            user.Id,
+            UserTokenType.EmailConfirmation,
+            cancellationToken);
         var confirmationToken = _tokenGenerator.GenerateSecureToken();
         var confirmationTokenHash = _tokenHasher.HashToken(confirmationToken);
 
@@ -73,8 +67,7 @@ public sealed class RegisterUserHandler
             expiresAt: DateTimeOffset.UtcNow.Add(EmailConfirmationTokenLifetime));
 
         await _userTokenRepository.AddAsync(userToken, cancellationToken);
-
-        await _userRepository.SaveChangesAsync(cancellationToken);
+        await _userTokenRepository.SaveChangesAsync(cancellationToken);
 
         var confirmationUrl = _authLinkBuilder.BuildEmailConfirmationUrl(confirmationToken);
 
@@ -83,8 +76,6 @@ public sealed class RegisterUserHandler
             confirmationUrl: confirmationUrl,
             cancellationToken: cancellationToken);
 
-        return new RegisterUserResult(
-            UserId: user.Id,
-            Email: user.Email);
+        return new ResendConfirmationEmailResult(GenericMessage);
     }
 }

@@ -361,3 +361,46 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# Local secrets
+src/MangaTracker.Api/appsettings.Development.json
+
+# Build results
+bin/
+obj/
+
+# User-specific files
+*.user
+*.suo
+*.rsuser
+.vs/
+
+# Rider
+.idea/
+
+# Visual Studio Code
+.vscode/
+
+# Logs
+*.log
+
+# Local secrets
+src/MangaTracker.Api/appsettings.Development.json
+
+# Environment files
+.env
+.env.local
+
+# Test results
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+
+# NuGet
+*.nupkg
+packages/
+
+# OS
+.DS_Store
+Thumbs.db

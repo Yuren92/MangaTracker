@@ -1,6 +1,6 @@
 using MangaTracker.Application.Collection.AddMangaToCollection;
 using MangaTracker.Application.Mal.Dtos;
-using MangaTracker.Domain.Common;
+using MangaTracker.Application.Common.Exceptions;
 using MangaTracker.Tests.Fakes;
 
 namespace MangaTracker.Tests.Application.Collection.AddMangaToCollection;
@@ -43,7 +43,7 @@ public class AddMangaToCollectionHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_WhenMangaAlreadyExistsForSameUser_ShouldThrowDomainException()
+    public async Task HandleAsync_WhenMangaAlreadyExistsForSameUser_ShouldThrowConflictException()
     {
         // Arrange
         var repository = new FakeMangaCollectionRepository();
@@ -69,7 +69,7 @@ public class AddMangaToCollectionHandlerTests
         await handler.HandleAsync(command);
 
         // Act
-        var exception = await Assert.ThrowsAsync<DomainException>(() =>
+        var exception = await Assert.ThrowsAsync<ConflictException>(() =>
             handler.HandleAsync(command));
 
         // Assert
@@ -77,7 +77,7 @@ public class AddMangaToCollectionHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_WhenMangaDoesNotExistInMal_ShouldThrowDomainException()
+    public async Task HandleAsync_WhenMangaDoesNotExistInMal_ShouldThrowNotFoundException()
     {
         // Arrange
         var repository = new FakeMangaCollectionRepository();
@@ -91,7 +91,7 @@ public class AddMangaToCollectionHandlerTests
             CustomTotalVolumes: null);
 
         // Act
-        var exception = await Assert.ThrowsAsync<DomainException>(() =>
+        var exception = await Assert.ThrowsAsync<NotFoundException>(() =>
             handler.HandleAsync(command));
 
         // Assert

@@ -1,25 +1,27 @@
 ﻿using MangaTracker.Domain.Entities;
+using MangaTracker.Domain.Enums;
 
 namespace MangaTracker.Application.Abstractions;
 
-public interface IUserRepository
+public interface IUserTokenRepository
 {
-    Task<User?> GetByEmailAsync(
-        string email,
-        CancellationToken cancellationToken = default);
-
-    Task<User?> GetByIdAsync(
-        Guid id,
+    Task<UserToken?> GetActiveTokenAsync(
+        string tokenHash,
+        UserTokenType type,
         CancellationToken cancellationToken = default);
 
     Task AddAsync(
-        User user,
+        UserToken token,
+        CancellationToken cancellationToken = default);
+
+    Task DeleteExpiredOrUsedTokensAsync(
         CancellationToken cancellationToken = default);
 
     Task SaveChangesAsync(
         CancellationToken cancellationToken = default);
 
-    Task DeleteUnconfirmedUsersOlderThanAsync(
-        DateTimeOffset cutoff,
+    Task MarkActiveTokensAsUsedAsync(
+        Guid userId,
+        UserTokenType type,
         CancellationToken cancellationToken = default);
 }
