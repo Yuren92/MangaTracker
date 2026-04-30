@@ -1,0 +1,37 @@
+<section class="auth-card">
+  <h1>Confirmar email</h1>
+
+  @if (isLoading()) {
+    <p class="subtitle">
+      Confirmando tu cuenta...
+    </p>
+  }
+
+  @if (successMessage()) {
+    <div class="alert success">
+      {{ successMessage() }}
+    </div>
+
+    <p>
+      Tu cuenta ya está activa. Ahora puedes iniciar sesión.
+    </p>
+
+    <a routerLink="/login" class="button-link">
+      Ir al login
+    </a>
+  }
+
+  @if (errorMessage()) {
+    <div class="alert error">
+      {{ errorMessage() }}
+    </div>
+
+    <p>
+      El enlace puede haber caducado o ya haber sido usado.
+    </p>
+
+    <a routerLink="/login" class="button-link">
+      Ir al login
+    </a>
+  }
+</section>

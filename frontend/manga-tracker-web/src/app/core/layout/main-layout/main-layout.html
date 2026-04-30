@@ -6,9 +6,43 @@
 
     <nav class="nav">
       <a routerLink="/search">Buscar</a>
-      <a routerLink="/collection">Mi colección</a>
-      <a routerLink="/login">Login</a>
-      <a routerLink="/register">Registro</a>
+
+      @if (authState.isAuthenticated()) {
+        <a routerLink="/collection">Mi colección</a>
+
+        <div class="user-menu">
+          <button
+            type="button"
+            class="user-menu-button"
+            (click)="toggleUserMenu()"
+          >
+            @if (authState.currentUser(); as user) {
+              {{ user.email }}
+            } @else {
+              Mi cuenta
+            }
+
+            <span aria-hidden="true">▾</span>
+          </button>
+
+          @if (isUserMenuOpen()) {
+            <div class="user-menu-panel">
+              <a routerLink="/change-password" (click)="closeUserMenu()">
+                Cambiar contraseña
+              </a>
+
+              <button type="button" (click)="logout()">
+                Cerrar sesión
+              </button>
+            </div>
+          }
+        </div>
+      }
+
+      @if (!authState.isAuthenticated()) {
+        <a routerLink="/login">Login</a>
+        <a routerLink="/register">Registro</a>
+      }
     </nav>
   </header>
 

@@ -1,5 +1,60 @@
-<h1>Login</h1>
+<section class="auth-card">
+  <h1>Login</h1>
 
-<p>
-  Aquí irá el formulario de inicio de sesión.
-</p>
+  <p class="subtitle">
+    Inicia sesión para gestionar tu colección de manga.
+  </p>
+
+  @if (errorMessage()) {
+    <div class="alert">
+      {{ errorMessage() }}
+    </div>
+  }
+
+  <form [formGroup]="form" (ngSubmit)="submit()">
+    <label>
+      Email
+
+      <input
+        type="email"
+        formControlName="email"
+        placeholder="pedro@test.com"
+      />
+    </label>
+
+    @if (form.controls.email.touched && form.controls.email.invalid) {
+      <p class="field-error">
+        Introduce un email válido.
+      </p>
+    }
+
+    <label>
+      Contraseña
+
+      <input
+        type="password"
+        formControlName="password"
+        placeholder="Tu contraseña"
+      />
+    </label>
+
+    @if (form.controls.password.touched && form.controls.password.invalid) {
+      <p class="field-error">
+        La contraseña es obligatoria.
+      </p>
+    }
+
+    <button type="submit" [disabled]="isSubmitting()">
+      @if (isSubmitting()) {
+        Entrando...
+      } @else {
+        Entrar
+      }
+    </button>
+  </form>
+
+  <div class="links">
+    <a routerLink="/register">Crear cuenta</a>
+    <a routerLink="/forgot-password">He olvidado mi contraseña</a>
+  </div>
+</section>

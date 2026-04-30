@@ -5,12 +5,12 @@ import { RouterLink } from '@angular/router';
 import { AuthApi } from '../../services/auth-api';
 
 @Component({
-  selector: 'app-register-page',
+  selector: 'app-forgot-password-page',
   imports: [ReactiveFormsModule, RouterLink],
-  templateUrl: './register-page.html',
-  styleUrl: './register-page.scss'
+  templateUrl: './forgot-password-page.html',
+  styleUrl: './forgot-password-page.scss'
 })
-export class RegisterPage {
+export class ForgotPasswordPage {
   private readonly formBuilder = inject(NonNullableFormBuilder);
   private readonly authApi = inject(AuthApi);
 
@@ -19,8 +19,7 @@ export class RegisterPage {
   readonly successMessage = signal<string | null>(null);
 
   readonly form = this.formBuilder.group({
-    email: ['', [Validators.required, Validators.email]],
-    password: ['', [Validators.required]]
+    email: ['', [Validators.required, Validators.email]]
   });
 
   submit(): void {
@@ -33,18 +32,14 @@ export class RegisterPage {
     this.errorMessage.set(null);
     this.successMessage.set(null);
 
-    this.authApi.register(this.form.getRawValue()).subscribe({
+    this.authApi.forgotPassword(this.form.controls.email.value).subscribe({
       next: response => {
-        this.successMessage.set(
-          `Cuenta creada para ${response.email}. Revisa el enlace de confirmación en la consola del backend.`
-        );
-
-        this.form.reset();
+        this.successMessage.set(response.message);
         this.isSubmitting.set(false);
       },
       error: error => {
         this.errorMessage.set(
-          error?.error?.detail ?? 'No se ha podido crear la cuenta.'
+          error?.error?.detail ?? 'No se ha podido solicitar la recuperación.'
         );
 
         this.isSubmitting.set(false);

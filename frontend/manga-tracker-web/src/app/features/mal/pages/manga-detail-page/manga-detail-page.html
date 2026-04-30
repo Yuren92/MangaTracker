@@ -1,0 +1,109 @@
+@if (isLoading()) {
+<p class="loading">Cargando detalle...</p>
+}
+
+@if (errorMessage()) {
+<div class="alert error">
+    {{ errorMessage() }}
+</div>
+
+<a routerLink="/search" class="back-link">
+    Volver a la búsqueda
+</a>
+}
+
+@if (!isLoading() && manga(); as item) {
+<section class="detail-card">
+    <div class="cover">
+        @if (item.imageUrl) {
+        <img [src]="item.imageUrl" [alt]="item.title" />
+        } @else {
+        <div class="no-image">Sin imagen</div>
+        }
+    </div>
+
+    <div class="content">
+        <div class="title-row">
+            <div>
+                <h1>{{ item.title }}</h1>
+
+                <p class="meta">
+                    MAL ID: {{ item.malId }}
+                </p>
+            </div>
+
+            @if (item.isInCollection) {
+            <a class="secondary-button" [routerLink]="['/collection', item.collectionItemId]">
+                Ver en mi colección
+            </a>
+            } @else {
+            <button type="button" class="primary-button" [disabled]="isAddingToCollection()"
+                (click)="addToCollection()">
+                @if (isAddingToCollection()) {
+                Añadiendo...
+                } @else {
+                Añadir a mi colección
+                }
+            </button>
+            }
+        </div>
+        @if (addToCollectionError()) {
+        <div class="alert error">
+            {{ addToCollectionError() }}
+        </div>
+}
+        <div class="info-grid">
+            <div>
+                <span>Estado</span>
+                <strong>{{ item.status ?? 'Desconocido' }}</strong>
+            </div>
+
+            <div>
+                <span>Tomos</span>
+                <strong>{{ item.totalVolumes ?? 'Desconocido' }}</strong>
+            </div>
+
+            <div>
+                <span>Capítulos</span>
+                <strong>{{ item.totalChapters ?? 'Desconocido' }}</strong>
+            </div>
+        </div>
+
+        <section class="synopsis">
+            <h2>Sinopsis</h2>
+
+            <p>
+                {{ item.synopsis ?? 'No hay sinopsis disponible.' }}
+            </p>
+        </section>
+    </div>
+</section>
+
+@if (hasRecommendations()) {
+<section class="recommendations">
+    <h2>También te puede gustar</h2>
+
+    <div class="recommendation-grid">
+        @for (recommendation of item.recommendations; track recommendation.malId) {
+        <a class="recommendation-card" [routerLink]="['/manga', recommendation.malId]">
+            <div class="recommendation-cover">
+                @if (recommendation.imageUrl) {
+                <img [src]="recommendation.imageUrl" [alt]="recommendation.title" />
+                } @else {
+                <div class="no-image">Sin imagen</div>
+                }
+            </div>
+
+            <div class="recommendation-info">
+                <h3>{{ recommendation.title }}</h3>
+
+                <p>
+                    {{ recommendation.numRecommendations }} recomendaciones
+                </p>
+            </div>
+        </a>
+        }
+    </div>
+</section>
+}
+}

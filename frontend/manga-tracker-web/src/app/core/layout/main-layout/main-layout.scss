@@ -41,3 +41,56 @@
   margin: 0 auto;
   padding: 32px;
 }
+
+.user-menu {
+  position: relative;
+}
+
+.user-menu-button {
+  border: 0;
+  background: #374151;
+  color: white;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  &:hover {
+    background: #4b5563;
+  }
+}
+
+.user-menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  min-width: 200px;
+  background: white;
+  border-radius: 14px;
+  padding: 8px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
+  z-index: 20;
+
+  a,
+  button {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    color: #111827;
+    text-align: left;
+    display: block;
+    padding: 10px 12px;
+    border-radius: 10px;
+    text-decoration: none;
+    font-weight: 700;
+    cursor: pointer;
+    box-sizing: border-box;
+
+    &:hover {
+      background: #f3f4f6;
+    }
+  }
+}

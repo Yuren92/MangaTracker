@@ -5,12 +5,12 @@ import { RouterLink } from '@angular/router';
 import { AuthApi } from '../../services/auth-api';
 
 @Component({
-  selector: 'app-register-page',
+  selector: 'app-change-password-page',
   imports: [ReactiveFormsModule, RouterLink],
-  templateUrl: './register-page.html',
-  styleUrl: './register-page.scss'
+  templateUrl: './change-password-page.html',
+  styleUrl: './change-password-page.scss'
 })
-export class RegisterPage {
+export class ChangePasswordPage {
   private readonly formBuilder = inject(NonNullableFormBuilder);
   private readonly authApi = inject(AuthApi);
 
@@ -19,8 +19,8 @@ export class RegisterPage {
   readonly successMessage = signal<string | null>(null);
 
   readonly form = this.formBuilder.group({
-    email: ['', [Validators.required, Validators.email]],
-    password: ['', [Validators.required]]
+    currentPassword: ['', [Validators.required]],
+    newPassword: ['', [Validators.required]]
   });
 
   submit(): void {
@@ -33,18 +33,17 @@ export class RegisterPage {
     this.errorMessage.set(null);
     this.successMessage.set(null);
 
-    this.authApi.register(this.form.getRawValue()).subscribe({
-      next: response => {
-        this.successMessage.set(
-          `Cuenta creada para ${response.email}. Revisa el enlace de confirmación en la consola del backend.`
-        );
+    const { currentPassword, newPassword } = this.form.getRawValue();
 
+    this.authApi.changePassword(currentPassword, newPassword).subscribe({
+      next: response => {
+        this.successMessage.set(response.message);
         this.form.reset();
         this.isSubmitting.set(false);
       },
       error: error => {
         this.errorMessage.set(
-          error?.error?.detail ?? 'No se ha podido crear la cuenta.'
+          error?.error?.detail ?? 'No se ha podido cambiar la contraseña.'
         );
 
         this.isSubmitting.set(false);
