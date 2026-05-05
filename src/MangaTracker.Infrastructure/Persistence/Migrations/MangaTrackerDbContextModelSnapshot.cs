@@ -22,6 +22,69 @@ namespace MangaTracker.Infrastructure.Persistence.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("MangaTracker.Domain.Entities.Edition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ComicVineApiDetailUrl")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("ComicVineVolumeId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<string>("ImageUrl")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTimeOffset>("ImportedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int?>("IssueCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset?>("LastSyncedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("PublisherName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("SeriesId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("SiteDetailUrl")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int?>("StartYear")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ComicVineApiDetailUrl")
+                        .IsUnique();
+
+                    b.HasIndex("ComicVineVolumeId")
+                        .IsUnique();
+
+                    b.HasIndex("SeriesId");
+
+                    b.ToTable("Editions", (string)null);
+                });
+
             modelBuilder.Entity("MangaTracker.Domain.Entities.MangaCollectionItem", b =>
                 {
                     b.Property<Guid>("Id")
@@ -87,6 +150,103 @@ namespace MangaTracker.Infrastructure.Persistence.Migrations
                     b.ToTable("OwnedVolumes", (string)null);
                 });
 
+            modelBuilder.Entity("MangaTracker.Domain.Entities.Series", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<string>("ImageUrl")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("OriginalTitle")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Series", (string)null);
+                });
+
+            modelBuilder.Entity("MangaTracker.Domain.Entities.Tome", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ComicVineApiDetailUrl")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("ComicVineIssueId")
+                        .HasColumnType("int");
+
+                    b.Property<DateOnly?>("CoverDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("EditionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ImageUrl")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("IssueNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int?>("NormalizedNumber")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SiteDetailUrl")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateOnly?>("StoreDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ComicVineApiDetailUrl")
+                        .IsUnique();
+
+                    b.HasIndex("ComicVineIssueId")
+                        .IsUnique();
+
+                    b.HasIndex("EditionId", "IssueNumber")
+                        .IsUnique();
+
+                    b.ToTable("Tomes", (string)null);
+                });
+
             modelBuilder.Entity("MangaTracker.Domain.Entities.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -118,6 +278,56 @@ namespace MangaTracker.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("Users", (string)null);
+                });
+
+            modelBuilder.Entity("MangaTracker.Domain.Entities.UserCollection", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("EditionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EditionId");
+
+                    b.HasIndex("UserId", "EditionId")
+                        .IsUnique();
+
+                    b.ToTable("UserCollections", (string)null);
+                });
+
+            modelBuilder.Entity("MangaTracker.Domain.Entities.UserOwnedTome", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("TomeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("UserCollectionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TomeId");
+
+                    b.HasIndex("UserCollectionId", "TomeId")
+                        .IsUnique();
+
+                    b.ToTable("UserOwnedTomes", (string)null);
                 });
 
             modelBuilder.Entity("MangaTracker.Domain.Entities.UserToken", b =>
@@ -155,6 +365,17 @@ namespace MangaTracker.Infrastructure.Persistence.Migrations
                     b.ToTable("UserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("MangaTracker.Domain.Entities.Edition", b =>
+                {
+                    b.HasOne("MangaTracker.Domain.Entities.Series", "Series")
+                        .WithMany("Editions")
+                        .HasForeignKey("SeriesId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Series");
+                });
+
             modelBuilder.Entity("MangaTracker.Domain.Entities.MangaCollectionItem", b =>
                 {
                     b.HasOne("MangaTracker.Domain.Entities.User", null)
@@ -172,6 +393,53 @@ namespace MangaTracker.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade);
                 });
 
+            modelBuilder.Entity("MangaTracker.Domain.Entities.Tome", b =>
+                {
+                    b.HasOne("MangaTracker.Domain.Entities.Edition", "Edition")
+                        .WithMany("Tomes")
+                        .HasForeignKey("EditionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Edition");
+                });
+
+            modelBuilder.Entity("MangaTracker.Domain.Entities.UserCollection", b =>
+                {
+                    b.HasOne("MangaTracker.Domain.Entities.Edition", "Edition")
+                        .WithMany("UserCollections")
+                        .HasForeignKey("EditionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MangaTracker.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Edition");
+                });
+
+            modelBuilder.Entity("MangaTracker.Domain.Entities.UserOwnedTome", b =>
+                {
+                    b.HasOne("MangaTracker.Domain.Entities.Tome", "Tome")
+                        .WithMany("UserOwnedTomes")
+                        .HasForeignKey("TomeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MangaTracker.Domain.Entities.UserCollection", "UserCollection")
+                        .WithMany("OwnedTomes")
+                        .HasForeignKey("UserCollectionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Tome");
+
+                    b.Navigation("UserCollection");
+                });
+
             modelBuilder.Entity("MangaTracker.Domain.Entities.UserToken", b =>
                 {
                     b.HasOne("MangaTracker.Domain.Entities.User", null)
@@ -181,9 +449,31 @@ namespace MangaTracker.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("MangaTracker.Domain.Entities.Edition", b =>
+                {
+                    b.Navigation("Tomes");
+
+                    b.Navigation("UserCollections");
+                });
+
             modelBuilder.Entity("MangaTracker.Domain.Entities.MangaCollectionItem", b =>
                 {
                     b.Navigation("OwnedVolumes");
+                });
+
+            modelBuilder.Entity("MangaTracker.Domain.Entities.Series", b =>
+                {
+                    b.Navigation("Editions");
+                });
+
+            modelBuilder.Entity("MangaTracker.Domain.Entities.Tome", b =>
+                {
+                    b.Navigation("UserOwnedTomes");
+                });
+
+            modelBuilder.Entity("MangaTracker.Domain.Entities.UserCollection", b =>
+                {
+                    b.Navigation("OwnedTomes");
                 });
 #pragma warning restore 612, 618
         }

@@ -1,5 +1,46 @@
-<h1>Mi colección</h1>
+<section class="page-header">
+  <div>
+    <h1>Mi colección</h1>
 
-<p>
-  Aquí mostraremos los mangas añadidos a tu colección.
-</p>
+    <p>
+      Consulta los mangas que has añadido y controla los tomos que tienes.
+    </p>
+  </div>
+
+  <a routerLink="/search" class="primary-link">
+    Buscar manga
+  </a>
+</section>
+
+@if (isLoading()) {
+  <p class="loading">Cargando colección...</p>
+}
+
+<app-alert type="error" [message]="errorMessage()" />
+<app-alert type="success" [message]="successMessage()" />
+
+@if (!isLoading() && items().length === 0) {
+  <section class="empty-card">
+    <h2>Tu colección está vacía</h2>
+
+    <p>
+      Busca un manga en MyAnimeList y añádelo a tu colección para empezar.
+    </p>
+
+    <a routerLink="/search" class="primary-link">
+      Buscar manga
+    </a>
+  </section>
+}
+
+@if (!isLoading() && items().length > 0) {
+  <section class="collection-grid">
+    @for (item of items(); track item.id) {
+      <app-collection-card
+        [item]="item"
+        [removingItemId]="removingItemId()"
+        (remove)="removeFromCollection($event)"
+      />
+    }
+  </section>
+}

@@ -2,6 +2,7 @@ using MangaTracker.Application.Abstractions;
 using MangaTracker.Application.Abstractions.Auth;
 using MangaTracker.Infrastructure.Auth;
 using MangaTracker.Infrastructure.ExternalServices.MyAnimeList;
+using MangaTracker.Infrastructure.ExternalServices.ComicVine;
 using MangaTracker.Infrastructure.Persistence;
 using MangaTracker.Infrastructure.Repositories;
 using MangaTracker.Application.Abstractions.Email;
@@ -28,8 +29,13 @@ public static class DependencyInjection
             services.AddScoped<IUserRepository, UserRepository>();
             services.AddScoped<IUserTokenRepository, UserTokenRepository>();
 
+            services.AddScoped<ISeriesRepository, SeriesRepository>();
+            services.AddScoped<IEditionRepository, EditionRepository>();
+            services.AddScoped<ITomeRepository, TomeRepository>();
+            services.AddScoped<IUserCollectionRepository, UserCollectionRepository>();
+
             services.Configure<AuthLinkOptions>(
-                configuration.GetSection("AuthLinks"));
+                    configuration.GetSection("AuthLinks"));
 
             services.Configure<AuthCleanupOptions>(
                 configuration.GetSection("AuthCleanup"));
@@ -48,7 +54,7 @@ public static class DependencyInjection
             services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 
             services.Configure<MalOptions>(
-            configuration.GetSection("MyAnimeList"));
+                configuration.GetSection("MyAnimeList"));
 
             services.AddHttpClient<IMalMangaClient, MalMangaClient>((serviceProvider, client) =>
             {
@@ -57,6 +63,19 @@ public static class DependencyInjection
                     .Value;
 
                 client.BaseAddress = new Uri(options.BaseUrl);
+            });
+
+            services.Configure<ComicVineOptions>(
+                configuration.GetSection("ComicVine"));
+
+            services.AddHttpClient<IComicVineClient, ComicVineClient>((serviceProvider, client) =>
+            {
+                var options = serviceProvider
+                    .GetRequiredService<Microsoft.Extensions.Options.IOptions<ComicVineOptions>>()
+                    .Value;
+
+                client.BaseAddress = new Uri(options.BaseUrl);
+                client.DefaultRequestHeaders.UserAgent.ParseAdd("MangaTracker/1.0");
             });
 
             return services;

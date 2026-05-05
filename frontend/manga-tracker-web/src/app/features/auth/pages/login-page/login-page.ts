@@ -1,13 +1,15 @@
 import { Component, inject, signal } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AuthState } from '../../../../core/auth/auth-state';
+import { getApiErrorMessage } from '../../../../core/http/api-error';
+import { AppAlert } from '../../../../shared/components/app-alert/app-alert';
 
 import { AuthApi } from '../../services/auth-api';
 
 @Component({
   selector: 'app-login-page',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, AppAlert],
   templateUrl: './login-page.html',
   styleUrl: './login-page.scss'
 })
@@ -17,6 +19,7 @@ export class LoginPage {
   private readonly router = inject(Router);
 
   private readonly authState = inject(AuthState);
+  private readonly route = inject(ActivatedRoute);
 
   readonly isSubmitting = signal(false);
   readonly errorMessage = signal<string | null>(null);
@@ -39,11 +42,19 @@ export class LoginPage {
       next: response => {
         this.authState.setAccessToken(response.accessToken);
         this.authState.loadCurrentUser();
-        this.router.navigateByUrl('/collection');
+
+        const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
+
+        const safeReturnUrl =
+          returnUrl && returnUrl.startsWith('/')
+            ? returnUrl
+            : '/collection';
+
+        this.router.navigateByUrl(safeReturnUrl);
       },
       error: error => {
         this.errorMessage.set(
-          error?.error?.detail ?? 'No se ha podido iniciar sesión.'
+          getApiErrorMessage(error, 'No se ha podido iniciar sesión.')
         );
 
         this.isSubmitting.set(false);

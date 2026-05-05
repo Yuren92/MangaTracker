@@ -1,0 +1,17 @@
+<section class="panel missing-panel">
+  <h2>Tomos faltantes</h2>
+
+  @if (missingVolumeNumbers().length === 0) {
+    <p class="empty-text">
+      No hay tomos faltantes calculados.
+    </p>
+  } @else {
+    <div class="missing-list">
+      @for (volumeNumber of missingVolumeNumbers(); track volumeNumber) {
+        <span>
+          {{ volumeNumber }}
+        </span>
+      }
+    </div>
+  }
+</section>

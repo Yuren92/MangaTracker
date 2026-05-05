@@ -11,6 +11,8 @@ import { ConfirmEmailPage } from './features/auth/pages/confirm-email-page/confi
 import { ResetPasswordPage } from './features/auth/pages/reset-password-page/reset-password-page';
 import { ChangePasswordPage } from './features/auth/pages/change-password-page/change-password-page';
 import { MangaDetailPage } from './features/mal/pages/manga-detail-page/manga-detail-page';
+import { CollectionDetailPage } from './features/collection/pages/collection-detail-page/collection-detail-page';
+import { guestGuard } from './core/auth/guest-guard';
 
 
 export const routes: Routes = [
@@ -24,7 +26,8 @@ export const routes: Routes = [
       },
       {
         path: 'search',
-        component: MangaSearchPage
+        component: MangaSearchPage,
+        canActivate: [authGuard]
       },
       {
         path: 'collection',
@@ -34,15 +37,18 @@ export const routes: Routes = [
       },
       {
         path: 'login',
-        component: LoginPage
+        component: LoginPage,
+        canActivate: [guestGuard]
       },
       {
         path: 'register',
-        component: RegisterPage
+        component: RegisterPage,
+        canActivate: [guestGuard]
       },
       {
         path: 'forgot-password',
-        component: ForgotPasswordPage
+        component: ForgotPasswordPage,
+        canActivate: [guestGuard]
       },
       {
         path: 'confirm-email',
@@ -50,7 +56,8 @@ export const routes: Routes = [
       },
       {
         path: 'reset-password',
-        component: ResetPasswordPage
+        component: ResetPasswordPage,
+        canActivate: [guestGuard]
       },
       {
         path: 'change-password',
@@ -60,6 +67,11 @@ export const routes: Routes = [
       {
         path: 'manga/:malId',
         component: MangaDetailPage,
+        canActivate: [authGuard]
+      },
+      {
+        path: 'collection/:id',
+        component: CollectionDetailPage,
         canActivate: [authGuard]
       }
     ]

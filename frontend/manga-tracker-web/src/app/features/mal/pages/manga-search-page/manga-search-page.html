@@ -34,38 +34,18 @@
   }
 </section>
 
-@if (errorMessage()) {
-  <div class="alert error">
-    {{ errorMessage() }}
-  </div>
-}
+<app-alert type="error" [message]="errorMessage()" />
 
 @if (!isLoading() && results().length > 0) {
   <section class="results-grid">
     @for (manga of results(); track manga.malId) {
-      <article class="manga-card">
-        <div class="cover">
-          @if (manga.imageUrl) {
-            <img [src]="manga.imageUrl" [alt]="manga.title" />
-          } @else {
-            <div class="no-image">
-              Sin imagen
-            </div>
-          }
-        </div>
-
-        <div class="manga-info">
-          <h2>{{ manga.title }}</h2>
-
-          <p>
-            MAL ID: {{ manga.malId }}
-          </p>
-
-          <a [routerLink]="['/manga', manga.malId]">
-            Ver detalle
-          </a>
-        </div>
-      </article>
+      <app-manga-card
+        [title]="manga.title"
+        [imageUrl]="manga.imageUrl"
+        [subtitle]="'MAL ID: ' + manga.malId"
+        [detailLink]="['/manga', manga.malId]"
+        actionText="Ver detalle"
+      />
     }
   </section>
 }

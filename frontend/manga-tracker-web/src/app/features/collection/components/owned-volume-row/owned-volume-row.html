@@ -1,0 +1,34 @@
+<div class="volume-row">
+  <div>
+    <strong>Tomo {{ volume().volumeNumber }}</strong>
+
+    <p>
+      @if (volume().purchaseDate) {
+        {{ volume().purchaseDate }}
+      } @else {
+        Sin fecha
+      }
+
+      @if (volume().price !== null) {
+        · {{ volume().price }} €
+      }
+
+      @if (volume().store) {
+        · {{ volume().store }}
+      }
+    </p>
+  </div>
+
+  <button
+    type="button"
+    class="danger-button"
+    [disabled]="removingVolumeNumber() === volume().volumeNumber"
+    (click)="onRemove()"
+  >
+    @if (removingVolumeNumber() === volume().volumeNumber) {
+      Quitando...
+    } @else {
+      Quitar
+    }
+  </button>
+</div>

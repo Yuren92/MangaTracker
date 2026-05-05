@@ -3,9 +3,8 @@
 }
 
 @if (errorMessage()) {
-<div class="alert error">
-    {{ errorMessage() }}
-</div>
+
+<app-alert type="error" [message]="errorMessage()" />
 
 <a routerLink="/search" class="back-link">
     Volver a la búsqueda
@@ -47,11 +46,9 @@
             </button>
             }
         </div>
-        @if (addToCollectionError()) {
-        <div class="alert error">
-            {{ addToCollectionError() }}
-        </div>
-}
+        
+        <app-alert type="error" [message]="addToCollectionError()" />
+
         <div class="info-grid">
             <div>
                 <span>Estado</span>
@@ -85,23 +82,13 @@
 
     <div class="recommendation-grid">
         @for (recommendation of item.recommendations; track recommendation.malId) {
-        <a class="recommendation-card" [routerLink]="['/manga', recommendation.malId]">
-            <div class="recommendation-cover">
-                @if (recommendation.imageUrl) {
-                <img [src]="recommendation.imageUrl" [alt]="recommendation.title" />
-                } @else {
-                <div class="no-image">Sin imagen</div>
-                }
-            </div>
-
-            <div class="recommendation-info">
-                <h3>{{ recommendation.title }}</h3>
-
-                <p>
-                    {{ recommendation.numRecommendations }} recomendaciones
-                </p>
-            </div>
-        </a>
+            <app-manga-card
+                [title]="recommendation.title"
+                [imageUrl]="recommendation.imageUrl"
+                [subtitle]="recommendation.numRecommendations + ' recomendaciones'"
+                [detailLink]="['/manga', recommendation.malId]"
+                actionText="Ver detalle"
+            />
         }
     </div>
 </section>

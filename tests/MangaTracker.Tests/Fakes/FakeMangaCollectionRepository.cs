@@ -51,6 +51,15 @@ public sealed class FakeMangaCollectionRepository : IMangaCollectionRepository
         return Task.CompletedTask;
     }
 
+    public Task RemoveAsync(
+        MangaCollectionItem mangaCollectionItem,
+        CancellationToken cancellationToken = default)
+    {
+        _items.Remove(mangaCollectionItem);
+
+        return Task.CompletedTask;
+    }
+
     public Task SaveChangesAsync(
         CancellationToken cancellationToken = default)
     {

@@ -10,8 +10,16 @@ using MangaTracker.Application.Collection.AddMangaToCollection;
 using MangaTracker.Application.Collection.AddOwnedVolumeToCollection;
 using MangaTracker.Application.Collection.GetMangaCollection;
 using MangaTracker.Application.Collection.GetMangaCollectionItem;
+using MangaTracker.Application.Collection.RemoveMangaFromCollection;
 using MangaTracker.Application.Collection.RemoveOwnedVolumeFromCollection;
 using MangaTracker.Application.Collection.UpdateCustomTotalVolumes;
+using MangaTracker.Application.Collections.GetPendingTomes;
+using MangaTracker.Application.Collections.GetUserCollectionDetail;
+using MangaTracker.Application.Collections.GetUserCollections;
+using MangaTracker.Application.Collections.ImportComicVineVolume;
+using MangaTracker.Application.Collections.MarkTomeAsOwned;
+using MangaTracker.Application.Collections.UnmarkTomeAsOwned;
+using MangaTracker.Application.ComicVine.GetIssueDetailsPage;
 using MangaTracker.Application.Mal.GetMalMangaDetail;
 using MangaTracker.Application.Mal.SearchMalManga;
 using Microsoft.Extensions.DependencyInjection;
@@ -38,6 +46,14 @@ public static class DependencyInjection
         services.AddScoped<ForgotPasswordHandler>();
         services.AddScoped<ResetPasswordHandler>();
         services.AddScoped<ChangePasswordHandler>();
+        services.AddScoped<RemoveMangaFromCollectionHandler>();
+        services.AddScoped<GetIssueDetailsPageHandler>();
+        services.AddScoped<GetUserCollectionsHandler>();
+        services.AddScoped<GetUserCollectionDetailHandler>();
+        services.AddScoped<MarkTomeAsOwnedHandler>();
+        services.AddScoped<UnmarkTomeAsOwnedHandler>();
+        services.AddScoped<GetPendingTomesHandler>();
+        services.AddScoped<ImportComicVineVolumeHandler>();
 
         return services;
     }

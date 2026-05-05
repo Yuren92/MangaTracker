@@ -5,7 +5,13 @@ import { environment } from '../../../../environments/environment';
 import {
   AddMangaToCollectionRequest,
   AddMangaToCollectionResponse,
-  GetMangaCollectionResponse
+  AddOwnedVolumeRequest,
+  AddOwnedVolumeResponse,
+  GetMangaCollectionItemResponse,
+  GetMangaCollectionResponse,
+  MessageResponse,
+  UpdateCustomTotalVolumesRequest,
+  UpdateCustomTotalVolumesResponse
 } from '../models/collection.models';
 
 @Injectable({
@@ -27,4 +33,38 @@ export class CollectionApi {
       request
     );
   }
+
+  removeMangaFromCollection(collectionItemId: string) {
+    return this.http.delete<MessageResponse>(
+      `${this.apiUrl}/api/collection/${collectionItemId}`
+    );
+  }
+
+  getCollectionItem(collectionItemId: string) {
+  return this.http.get<GetMangaCollectionItemResponse>(
+    `${this.apiUrl}/api/collection/${collectionItemId}`
+  );
+}
+
+addOwnedVolume(collectionItemId: string, request: AddOwnedVolumeRequest) {
+  return this.http.post<AddOwnedVolumeResponse>(
+    `${this.apiUrl}/api/collection/${collectionItemId}/volumes`,
+    request
+  );
+}
+
+removeOwnedVolume(collectionItemId: string, volumeNumber: number) {
+  return this.http.delete<MessageResponse>(
+    `${this.apiUrl}/api/collection/${collectionItemId}/volumes/${volumeNumber}`
+  );
+}
+
+updateCustomTotalVolumes(
+  collectionItemId: string,
+  request: UpdateCustomTotalVolumesRequest) {
+  return this.http.put<UpdateCustomTotalVolumesResponse>(
+    `${this.apiUrl}/api/collection/${collectionItemId}/total-volumes`,
+    request
+  );
+}
 }

@@ -1,12 +1,13 @@
 import { Component, inject, signal } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-
+import { getApiErrorMessage } from '../../../../core/http/api-error';
+import { AppAlert } from '../../../../shared/components/app-alert/app-alert';
 import { AuthApi } from '../../services/auth-api';
 
 @Component({
   selector: 'app-register-page',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, AppAlert],
   templateUrl: './register-page.html',
   styleUrl: './register-page.scss'
 })
@@ -44,7 +45,7 @@ export class RegisterPage {
       },
       error: error => {
         this.errorMessage.set(
-          error?.error?.detail ?? 'No se ha podido crear la cuenta.'
+          getApiErrorMessage(error, 'No se ha podido crear la cuenta.')
         );
 
         this.isSubmitting.set(false);

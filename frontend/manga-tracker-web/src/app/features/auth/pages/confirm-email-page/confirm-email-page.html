@@ -8,30 +8,26 @@
   }
 
   @if (successMessage()) {
-    <div class="alert success">
-      {{ successMessage() }}
-    </div>
+  <app-alert type="success" [message]="successMessage()" />
 
-    <p>
-      Tu cuenta ya está activa. Ahora puedes iniciar sesión.
-    </p>
+  <p>
+    Tu cuenta ya está activa. Ahora puedes iniciar sesión.
+  </p>
 
-    <a routerLink="/login" class="button-link">
-      Ir al login
-    </a>
-  }
+  <a routerLink="/login" class="button-link">
+    Ir al login
+  </a>
+}
 
-  @if (errorMessage()) {
-    <div class="alert error">
-      {{ errorMessage() }}
-    </div>
+@if (errorMessage()) {
+  <app-alert type="error" [message]="errorMessage()" />
 
-    <p>
-      El enlace puede haber caducado o ya haber sido usado.
-    </p>
+  <p>
+    El enlace puede haber caducado o ya haber sido usado.
+  </p>
 
-    <a routerLink="/login" class="button-link">
-      Ir al login
-    </a>
-  }
+  <a routerLink="/login" class="button-link">
+    Ir al login
+  </a>
+}
 </section>

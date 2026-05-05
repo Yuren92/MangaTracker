@@ -24,4 +24,9 @@ public interface IMangaCollectionRepository
         Guid userId,
         Guid id,
         CancellationToken cancellationToken = default);
+
+    Task RemoveAsync(
+    MangaCollectionItem mangaCollectionItem,
+    CancellationToken cancellationToken = default);
+
 }

@@ -1,11 +1,12 @@
 import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-
 import { AuthApi } from '../../services/auth-api';
+import { getApiErrorMessage } from '../../../../core/http/api-error';
+import { AppAlert } from '../../../../shared/components/app-alert/app-alert';
 
 @Component({
   selector: 'app-confirm-email-page',
-  imports: [RouterLink],
+  imports: [RouterLink, AppAlert],
   templateUrl: './confirm-email-page.html',
   styleUrl: './confirm-email-page.scss'
 })
@@ -33,7 +34,7 @@ export class ConfirmEmailPage {
       },
       error: error => {
         this.errorMessage.set(
-          error?.error?.detail ?? 'No se ha podido confirmar el email.'
+          getApiErrorMessage(error, 'No se ha podido confirmar el email.')
         );
 
         this.isLoading.set(false);

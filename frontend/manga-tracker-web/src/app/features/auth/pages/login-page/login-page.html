@@ -5,11 +5,8 @@
     Inicia sesión para gestionar tu colección de manga.
   </p>
 
-  @if (errorMessage()) {
-    <div class="alert">
-      {{ errorMessage() }}
-    </div>
-  }
+  <app-alert type="error" [message]="errorMessage()" />
+  
 
   <form [formGroup]="form" (ngSubmit)="submit()">
     <label>

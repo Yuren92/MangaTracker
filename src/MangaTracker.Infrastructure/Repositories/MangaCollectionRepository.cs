@@ -58,4 +58,12 @@ public sealed class MangaCollectionRepository : IMangaCollectionRepository
     {
         return _dbContext.SaveChangesAsync(cancellationToken);
     }
+    public Task RemoveAsync(
+    MangaCollectionItem mangaCollectionItem,
+    CancellationToken cancellationToken = default)
+    {
+        _dbContext.MangaCollectionItems.Remove(mangaCollectionItem);
+
+        return Task.CompletedTask;
+    }
 }

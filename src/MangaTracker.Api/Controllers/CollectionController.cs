@@ -1,10 +1,11 @@
+using MangaTracker.Application.Abstractions.Auth;
 using MangaTracker.Application.Collection.AddMangaToCollection;
 using MangaTracker.Application.Collection.AddOwnedVolumeToCollection;
 using MangaTracker.Application.Collection.GetMangaCollection;
 using MangaTracker.Application.Collection.GetMangaCollectionItem;
+using MangaTracker.Application.Collection.RemoveMangaFromCollection;
 using MangaTracker.Application.Collection.RemoveOwnedVolumeFromCollection;
 using MangaTracker.Application.Collection.UpdateCustomTotalVolumes;
-using MangaTracker.Application.Abstractions.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -21,6 +22,7 @@ public sealed class CollectionController : ControllerBase
     private readonly RemoveOwnedVolumeFromCollectionHandler _removeOwnedVolumeFromCollectionHandler;
     private readonly GetMangaCollectionItemHandler _getMangaCollectionItemHandler;
     private readonly UpdateCustomTotalVolumesHandler _updateCustomTotalVolumesHandler;
+    private readonly RemoveMangaFromCollectionHandler _removeMangaFromCollectionHandler;
     private readonly ICurrentUserService _currentUserService;
 
 
@@ -30,7 +32,8 @@ public sealed class CollectionController : ControllerBase
         RemoveOwnedVolumeFromCollectionHandler removeOwnedVolumeFromCollectionHandler,
         GetMangaCollectionItemHandler getMangaCollectionItemHandler,
         UpdateCustomTotalVolumesHandler updateCustomTotalVolumesHandler,
-        ICurrentUserService currentUserService)
+        ICurrentUserService currentUserService,
+        RemoveMangaFromCollectionHandler removeMangaFromCollectionHandler)
     {
         _addMangaToCollectionHandler = addMangaToCollectionHandler;
         _getMangaCollectionHandler = getMangaCollectionHandler;
@@ -38,6 +41,7 @@ public sealed class CollectionController : ControllerBase
         _removeOwnedVolumeFromCollectionHandler = removeOwnedVolumeFromCollectionHandler;
         _getMangaCollectionItemHandler = getMangaCollectionItemHandler;
         _updateCustomTotalVolumesHandler = updateCustomTotalVolumesHandler;
+        _removeMangaFromCollectionHandler = removeMangaFromCollectionHandler;
         _currentUserService = currentUserService;
 
     }
@@ -69,6 +73,22 @@ public sealed class CollectionController : ControllerBase
             nameof(AddMangaToCollection),
             new { id = result.Id },
             result);
+    }
+
+    [HttpDelete("{id:guid}")]
+    public async Task<ActionResult<RemoveMangaFromCollectionResult>> RemoveMangaFromCollection(
+    Guid id,
+    CancellationToken cancellationToken)
+    {
+        var command = new RemoveMangaFromCollectionCommand(
+            UserId: _currentUserService.UserId,
+            CollectionItemId: id);
+
+        var result = await _removeMangaFromCollectionHandler.HandleAsync(
+            command,
+            cancellationToken);
+
+        return Ok(result);
     }
 
     [HttpPost("{id:guid}/volumes")]

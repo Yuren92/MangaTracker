@@ -1,13 +1,15 @@
 import { Component, inject, signal } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-
+import { getApiErrorMessage } from '../../../../core/http/api-error';
 import { MalMangaSearchResult } from '../../models/mal.models';
 import { MalApi } from '../../services/mal-api';
+import { AppAlert } from '../../../../shared/components/app-alert/app-alert';
+import { MangaCard } from '../../../../shared/components/manga-card/manga-card';
 
 @Component({
   selector: 'app-manga-search-page',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, AppAlert, MangaCard],
   templateUrl: './manga-search-page.html',
   styleUrl: './manga-search-page.scss'
 })
@@ -42,7 +44,7 @@ export class MangaSearchPage {
       },
       error: error => {
         this.errorMessage.set(
-          error?.error?.detail ?? 'No se ha podido buscar manga.'
+          getApiErrorMessage(error, 'No se ha podido buscar manga.')
         );
 
         this.isLoading.set(false);

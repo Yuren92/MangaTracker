@@ -1,12 +1,13 @@
 import { Component, inject, signal } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-
+import { getApiErrorMessage } from '../../../../core/http/api-error';
 import { AuthApi } from '../../services/auth-api';
+import { AppAlert } from '../../../../shared/components/app-alert/app-alert';
 
 @Component({
   selector: 'app-reset-password-page',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, AppAlert],
   templateUrl: './reset-password-page.html',
   styleUrl: './reset-password-page.scss'
 })
@@ -51,7 +52,7 @@ export class ResetPasswordPage {
       },
       error: error => {
         this.errorMessage.set(
-          error?.error?.detail ?? 'No se ha podido cambiar la contraseña.'
+          getApiErrorMessage(error, 'No se ha podido cambiar la contraseña.')
         );
 
         this.isSubmitting.set(false);

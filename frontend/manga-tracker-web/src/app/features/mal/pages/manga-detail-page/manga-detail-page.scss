@@ -162,48 +162,6 @@ h1 {
   gap: 24px;
 }
 
-.recommendation-card {
-  background: white;
-  border-radius: 18px;
-  overflow: hidden;
-  text-decoration: none;
-  color: inherit;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
-
-  &:hover h3 {
-    color: #2563eb;
-  }
-}
-
-.recommendation-cover {
-  aspect-ratio: 3 / 4;
-  background: #e5e7eb;
-
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-  }
-}
-
-.recommendation-info {
-  padding: 14px;
-
-  h3 {
-    margin: 0 0 8px;
-    font-size: 16px;
-    line-height: 1.3;
-  }
-
-  p {
-    margin: 0;
-    color: #6b7280;
-    font-size: 14px;
-    font-weight: 600;
-  }
-}
-
 @media (max-width: 760px) {
   .detail-card {
     grid-template-columns: 1fr;

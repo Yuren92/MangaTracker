@@ -3,10 +3,13 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { CollectionApi } from '../../../collection/services/collection-api';
 import { MalMangaDetail } from '../../models/mal.models';
 import { MalApi } from '../../services/mal-api';
+import { getApiErrorMessage } from '../../../../core/http/api-error';
+import { AppAlert } from '../../../../shared/components/app-alert/app-alert';
+import { MangaCard } from '../../../../shared/components/manga-card/manga-card';
 
 @Component({
   selector: 'app-manga-detail-page',
-  imports: [RouterLink],
+  imports: [RouterLink, AppAlert, MangaCard],
   templateUrl: './manga-detail-page.html',
   styleUrl: './manga-detail-page.scss'
 })
@@ -29,21 +32,25 @@ export class MangaDetailPage {
   );
 
   constructor() {
-    const malIdParam = this.route.snapshot.paramMap.get('malId');
-    const malId = Number(malIdParam);
+    this.route.paramMap.subscribe(params => {
+      const malIdParam = params.get('malId');
+      const malId = Number(malIdParam);
 
-    if (!malId || Number.isNaN(malId)) {
-      this.isLoading.set(false);
-      this.errorMessage.set('El identificador del manga no es válido.');
-      return;
-    }
-
-    this.loadMangaDetail(malId);
+      if (!malId || Number.isNaN(malId)) {
+        this.isLoading.set(false);
+        this.errorMessage.set('El identificador del manga no es válido.');
+        return;
+      }
+        
+      this.loadMangaDetail(malId);
+    });
   }
 
   private loadMangaDetail(malId: number): void {
     this.isLoading.set(true);
     this.errorMessage.set(null);
+    this.addToCollectionError.set(null);
+    this.manga.set(null);
 
     this.malApi.getMangaDetail(malId).subscribe({
       next: response => {
@@ -52,7 +59,7 @@ export class MangaDetailPage {
       },
       error: error => {
         this.errorMessage.set(
-          error?.error?.detail ?? 'No se ha podido cargar el detalle del manga.'
+          getApiErrorMessage(error, 'No se ha podido cargar el detalle del manga.')
         );
 
         this.isLoading.set(false);
@@ -79,7 +86,7 @@ export class MangaDetailPage {
       },
       error: error => {
         this.addToCollectionError.set(
-          error?.error?.detail ?? 'No se ha podido añadir el manga a tu colección.'
+          getApiErrorMessage(error, 'No se ha podido añadir el manga a tu colección.')
         );
 
         this.isAddingToCollection.set(false);
