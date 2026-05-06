@@ -23,4 +23,11 @@
     <ProjectReference Include="..\..\src\MangaTracker.Application\MangaTracker.Application.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Application\" />
+    <Folder Include="Domain\Entities\" />
+    <Folder Include="Domain\ValueObjects\" />
+    <Folder Include="Fakes\" />
+  </ItemGroup>
+
 </Project>

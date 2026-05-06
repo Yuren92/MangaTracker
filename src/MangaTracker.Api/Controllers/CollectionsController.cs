@@ -3,6 +3,7 @@ using MangaTracker.Application.Collections.GetPendingTomes;
 using MangaTracker.Application.Collections.GetUserCollectionDetail;
 using MangaTracker.Application.Collections.GetUserCollections;
 using MangaTracker.Application.Collections.ImportComicVineVolume;
+using MangaTracker.Application.Collections.MarkAllTomesAsOwned;
 using MangaTracker.Application.Collections.MarkTomeAsOwned;
 using MangaTracker.Application.Collections.UnmarkTomeAsOwned;
 using Microsoft.AspNetCore.Authorization;
@@ -22,6 +23,7 @@ public sealed class CollectionsController : ControllerBase
     private readonly UnmarkTomeAsOwnedHandler _unmarkTomeAsOwnedHandler;
     private readonly GetPendingTomesHandler _getPendingTomesHandler;
     private readonly ImportComicVineVolumeHandler _importComicVineVolumeHandler;
+    private readonly MarkAllTomesAsOwnedHandler _markAllTomesAsOwnedHandler;
 
     public CollectionsController(
         ICurrentUserService currentUserService,
@@ -30,7 +32,8 @@ public sealed class CollectionsController : ControllerBase
         MarkTomeAsOwnedHandler markTomeAsOwnedHandler,
         UnmarkTomeAsOwnedHandler unmarkTomeAsOwnedHandler,
         GetPendingTomesHandler getPendingTomesHandler,
-        ImportComicVineVolumeHandler importComicVineVolumeHandler)
+        ImportComicVineVolumeHandler importComicVineVolumeHandler,
+        MarkAllTomesAsOwnedHandler markAllTomesAsOwnedHandler)
     {
         _currentUserService = currentUserService;
         _getUserCollectionsHandler = getUserCollectionsHandler;
@@ -39,6 +42,7 @@ public sealed class CollectionsController : ControllerBase
         _unmarkTomeAsOwnedHandler = unmarkTomeAsOwnedHandler;
         _getPendingTomesHandler = getPendingTomesHandler;
         _importComicVineVolumeHandler = importComicVineVolumeHandler;
+        _markAllTomesAsOwnedHandler = markAllTomesAsOwnedHandler;
     }
 
     [HttpGet]
@@ -118,6 +122,20 @@ public sealed class CollectionsController : ControllerBase
             new ImportComicVineVolumeCommand(
                 UserId: _currentUserService.UserId,
                 ApiDetailUrl: request.ApiDetailUrl),
+            cancellationToken);
+
+        return Ok(result);
+    }
+
+    [HttpPost("{collectionId:guid}/tomes/owned-all")]
+    public async Task<ActionResult<MarkAllTomesAsOwnedResult>> MarkAllTomesAsOwned(
+        Guid collectionId,
+        CancellationToken cancellationToken)
+    {
+        var result = await _markAllTomesAsOwnedHandler.HandleAsync(
+            new MarkAllTomesAsOwnedCommand(
+                UserId: _currentUserService.UserId,
+                CollectionId: collectionId),
             cancellationToken);
 
         return Ok(result);

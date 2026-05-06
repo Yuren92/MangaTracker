@@ -1,0 +1,79 @@
+<section class="page">
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Comic Vine</p>
+      <h1>Mis colecciones</h1>
+      <p class="subtitle">
+        Consulta las ediciones que sigues y revisa tus tomos comprados y pendientes.
+      </p>
+    </div>
+
+    <a class="primary-link" routerLink="/catalog/search">
+      Añadir colección
+    </a>
+  </header>
+
+  @if (isLoading()) {
+    <div class="state-card">
+      Cargando colecciones...
+    </div>
+  }
+
+  @if (errorMessage()) {
+    <div class="alert error">
+      {{ errorMessage() }}
+    </div>
+  }
+
+  @if (!isLoading() && collections().length === 0 && !errorMessage()) {
+    <div class="empty-state">
+      <h2>Aún no tienes colecciones nuevas</h2>
+      <p>
+        Busca una edición en el catálogo de Comic Vine para añadirla a tu colección.
+      </p>
+
+      <a routerLink="/catalog/search">
+        Ir al catálogo
+      </a>
+    </div>
+  }
+
+  @if (collections().length > 0) {
+    <section class="collections-grid">
+      @for (collection of collections(); track collection.id) {
+        <article class="collection-card">
+          <div class="cover">
+            @if (collection.imageUrl) {
+              <img [src]="collection.imageUrl" [alt]="collection.title" />
+            } @else {
+              <div class="no-image">Sin imagen</div>
+            }
+          </div>
+
+          <div class="collection-content">
+            <div>
+              <h2>{{ collection.title }}</h2>
+
+              <p class="publisher">
+                {{ collection.publisherName ?? 'Editorial desconocida' }}
+              </p>
+
+              <div class="stats">
+                <span>{{ collection.totalTomes }} tomos</span>
+                <span>{{ collection.ownedTomes }} comprados</span>
+                <span>{{ collection.pendingTomes }} pendientes</span>
+              </div>
+            </div>
+
+            <a
+              class="secondary-link"
+              [routerLink]="['/collections', collection.id]"
+            >
+              Ver colección
+            </a>
+          </div>
+        </article>
+      }
+    </section>
+  }
+</section>

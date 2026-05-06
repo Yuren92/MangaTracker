@@ -1,0 +1,89 @@
+<section class="page">
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Comic Vine</p>
+      <h1>Tomos pendientes</h1>
+      <p class="subtitle">
+        Revisa todos los tomos que todavía no has marcado como comprados.
+      </p>
+    </div>
+
+    <a class="primary-link" routerLink="/collections">
+      Mis colecciones
+    </a>
+  </header>
+
+  @if (isLoading()) {
+    <div class="state-card">
+      Cargando tomos pendientes...
+    </div>
+  }
+
+  @if (errorMessage()) {
+    <div class="alert error">
+      {{ errorMessage() }}
+    </div>
+  }
+
+  @if (!isLoading() && pendingTomes().length === 0 && !errorMessage()) {
+    <div class="empty-state">
+      <h2>No tienes tomos pendientes</h2>
+      <p>
+        Todas tus colecciones están completas o todavía no has añadido ninguna colección nueva.
+      </p>
+
+      <a routerLink="/catalog/search">
+        Buscar en catálogo
+      </a>
+    </div>
+  }
+
+  @if (pendingTomes().length > 0) {
+    <section class="tomes-grid">
+      @for (tome of pendingTomes(); track tome.tomeId) {
+        <article class="tome-card">
+          <div class="cover">
+            @if (tome.imageUrl) {
+              <img [src]="tome.imageUrl" [alt]="tome.tomeTitle ?? tome.seriesTitle" />
+            } @else {
+              <div class="no-image">Sin imagen</div>
+            }
+          </div>
+
+          <div class="tome-content">
+            <div>
+              <p class="collection-name">
+                {{ tome.seriesTitle }}
+              </p>
+
+              <p class="publisher">
+                {{ tome.publisherName ?? 'Editorial desconocida' }}
+              </p>
+
+              <p class="issue-number">
+                Tomo {{ tome.issueNumber }}
+              </p>
+
+              <h2>
+                {{ tome.tomeTitle ?? 'Sin título' }}
+              </h2>
+
+              @if (tome.storeDate) {
+                <p class="date">
+                  Publicado: {{ tome.storeDate }}
+                </p>
+              }
+            </div>
+
+            <a
+              class="secondary-link"
+              [routerLink]="['/collections', tome.collectionId]"
+            >
+              Ver colección
+            </a>
+          </div>
+        </article>
+      }
+    </section>
+  }
+</section>

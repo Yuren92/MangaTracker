@@ -37,6 +37,8 @@ public sealed class GetUserCollectionsHandler
                 return new UserCollectionListItemResult(
                     Id: collection.Id,
                     EditionId: collection.EditionId,
+                    ComicVineVolumeId: collection.Edition.ComicVineVolumeId,
+                    ComicVineApiDetailUrl: collection.Edition.ComicVineApiDetailUrl,
                     Title: collection.Edition.Series.Title,
                     PublisherName: collection.Edition.PublisherName,
                     ImageUrl: collection.Edition.ImageUrl,

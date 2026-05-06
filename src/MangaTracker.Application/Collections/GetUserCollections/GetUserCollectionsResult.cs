@@ -6,6 +6,8 @@ public sealed record GetUserCollectionsResult(
 public sealed record UserCollectionListItemResult(
     Guid Id,
     Guid EditionId,
+    int ComicVineVolumeId,
+    string ComicVineApiDetailUrl,
     string Title,
     string? PublisherName,
     string? ImageUrl,

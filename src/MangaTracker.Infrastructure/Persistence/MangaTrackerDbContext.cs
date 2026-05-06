@@ -10,8 +10,6 @@ public sealed class MangaTrackerDbContext : DbContext
     {
     }
 
-    public DbSet<MangaCollectionItem> MangaCollectionItems => Set<MangaCollectionItem>();
-
     public DbSet<User> Users => Set<User>();
     public DbSet<UserToken> UserTokens => Set<UserToken>();
 

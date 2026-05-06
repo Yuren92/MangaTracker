@@ -5,10 +5,10 @@
     </a>
 
     <nav class="nav">
-      <a routerLink="/search">Buscar</a>
-
       @if (authState.isAuthenticated()) {
-        <a routerLink="/collection">Mi colección</a>
+        <a routerLink="/catalog/search">Buscar</a>
+        <a routerLink="/collections">Mis colecciones</a>
+        <a routerLink="/collections/pending-tomes">Pendientes</a>
 
         <div class="user-menu">
           <button

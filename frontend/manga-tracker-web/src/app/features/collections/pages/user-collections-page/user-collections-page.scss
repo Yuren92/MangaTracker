@@ -1,0 +1,165 @@
+.page {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 32px 20px;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  color: #4f46e5;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.78rem;
+}
+
+h1 {
+  margin: 0;
+  color: #111827;
+  font-size: 2rem;
+}
+
+.subtitle {
+  margin: 8px 0 0;
+  color: #6b7280;
+  max-width: 680px;
+}
+
+.primary-link,
+.secondary-link,
+.empty-state a {
+  border-radius: 12px;
+  padding: 11px 14px;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.primary-link {
+  background: #4f46e5;
+  color: white;
+}
+
+.secondary-link {
+  display: inline-block;
+  background: #111827;
+  color: white;
+  text-align: center;
+}
+
+.state-card,
+.alert,
+.empty-state {
+  background: white;
+  border-radius: 18px;
+  padding: 22px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+.alert.error {
+  background: #fee2e2;
+  color: #991b1b;
+  font-weight: 800;
+}
+
+.empty-state {
+  h2 {
+    margin: 0;
+    color: #111827;
+  }
+
+  p {
+    color: #6b7280;
+    margin: 8px 0 18px;
+  }
+
+  a {
+    display: inline-block;
+    background: #4f46e5;
+    color: white;
+  }
+}
+
+.collections-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 18px;
+}
+
+.collection-card {
+  background: white;
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  display: flex;
+  flex-direction: column;
+}
+
+.cover {
+  height: 260px;
+  background: #f3f4f6;
+  display: grid;
+  place-items: center;
+  padding: 10px;
+
+  img {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    display: block;
+  }
+}
+
+.no-image {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: #6b7280;
+  font-weight: 900;
+}
+
+.collection-content {
+  padding: 16px;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 16px;
+
+  h2 {
+    margin: 0;
+    color: #111827;
+    font-size: 1.1rem;
+  }
+}
+
+.publisher {
+  margin: 6px 0 0;
+  color: #4b5563;
+  font-weight: 800;
+}
+
+.stats {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+
+  span {
+    background: #eef2ff;
+    color: #3730a3;
+    border-radius: 999px;
+    padding: 5px 9px;
+    font-weight: 900;
+    font-size: 0.8rem;
+  }
+}
