@@ -68,6 +68,7 @@ public sealed class ExceptionHandlingMiddleware
         string title)
     {
         context.Response.StatusCode = statusCode;
+        context.Response.ContentType = "application/problem+json";
 
         var problemDetails = new ProblemDetails
         {
@@ -86,6 +87,7 @@ public sealed class ExceptionHandlingMiddleware
         _logger.LogError(exception, "An unexpected error occurred.");
 
         context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        context.Response.ContentType = "application/problem+json";
 
         var problemDetails = new ProblemDetails
         {

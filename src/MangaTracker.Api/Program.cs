@@ -8,6 +8,8 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
+using MangaTracker.Api.RateLimiting;
+using Microsoft.AspNetCore.Mvc;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -51,7 +53,7 @@ builder.Services.AddAuthorization();
 
 builder.Services.AddRateLimiter(options =>
 {
-    options.AddPolicy("auth-sensitive", context =>
+    options.AddPolicy(RateLimitPolicies.AuthSensitive, context =>
     {
         var ipAddress = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
@@ -66,7 +68,7 @@ builder.Services.AddRateLimiter(options =>
             });
     });
 
-    options.AddPolicy("auth-normal", context =>
+    options.AddPolicy(RateLimitPolicies.AuthNormal, context =>
     {
         var ipAddress = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
@@ -81,7 +83,7 @@ builder.Services.AddRateLimiter(options =>
             });
     });
 
-    options.AddPolicy("external-api", context =>
+    options.AddPolicy(RateLimitPolicies.ExternalApi, context =>
     {
         var ipAddress = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
@@ -96,7 +98,7 @@ builder.Services.AddRateLimiter(options =>
             });
     });
 
-    options.AddPolicy("comic-vine-import", context =>
+    options.AddPolicy(RateLimitPolicies.ComicVineImport, context =>
     {
         var ipAddress = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
@@ -111,7 +113,22 @@ builder.Services.AddRateLimiter(options =>
             });
     });
 
-    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        context.HttpContext.Response.ContentType = "application/problem+json";
+
+        var problemDetails = new ProblemDetails
+        {
+            Title = "Too many requests",
+            Status = StatusCodes.Status429TooManyRequests,
+            Detail = "Too many requests. Please wait a moment before trying again."
+        };
+
+        await context.HttpContext.Response.WriteAsJsonAsync(
+            problemDetails,
+            cancellationToken);
+    };
 });
 
 var allowedOrigins = builder.Configuration
@@ -140,6 +157,8 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+app.UseMiddleware<ExceptionHandlingMiddleware>();
+
 app.UseHttpsRedirection();
 
 app.UseCors("frontend");
@@ -152,8 +171,6 @@ app.UseAuthorization();
 app.MapHealthChecks("/health");
 
 app.MapControllers();
-
-app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 app.Run();
 

@@ -1,6 +1,5 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-
 import { PendingTome } from '../../models/collections.models';
 import { CollectionsApi } from '../../services/collections-api';
 import { getApiErrorMessage } from '../../../../core/http/api-error';

@@ -61,8 +61,8 @@ public sealed class ComicVineClient : IComicVineClient
     }
 
     public Task<ComicVineVolumeDetailDto?> GetVolumeByComicVineVolumeIdAsync(
-    int comicVineVolumeId,
-    CancellationToken cancellationToken = default)
+        int comicVineVolumeId,
+        CancellationToken cancellationToken = default)
     {
         if (comicVineVolumeId <= 0)
         {
@@ -159,6 +159,21 @@ public sealed class ComicVineClient : IComicVineClient
         if (string.IsNullOrWhiteSpace(_options.ApiKey))
         {
             throw new InvalidOperationException("Comic Vine API key is not configured.");
+        }
+
+        if (!Uri.TryCreate(apiDetailUrl, UriKind.Absolute, out var uri))
+        {
+            throw new ArgumentException("Comic Vine API detail URL is not valid.", nameof(apiDetailUrl));
+        }
+
+        if (!string.Equals(uri.Host, "comicvine.gamespot.com", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException("Comic Vine API detail URL must belong to Comic Vine.", nameof(apiDetailUrl));
+        }
+
+        if (!uri.AbsolutePath.StartsWith("/api/", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException("Comic Vine API detail URL must point to the Comic Vine API.", nameof(apiDetailUrl));
         }
 
         var separator = apiDetailUrl.Contains('?', StringComparison.Ordinal)

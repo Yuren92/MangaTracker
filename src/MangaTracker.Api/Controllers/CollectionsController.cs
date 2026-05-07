@@ -1,4 +1,5 @@
-﻿using MangaTracker.Application.Abstractions.Auth;
+﻿using MangaTracker.Api.RateLimiting;
+using MangaTracker.Application.Abstractions.Auth;
 using MangaTracker.Application.Collections.GetPendingTomes;
 using MangaTracker.Application.Collections.GetUserCollectionDetail;
 using MangaTracker.Application.Collections.GetUserCollections;
@@ -114,7 +115,7 @@ public sealed class CollectionsController : ControllerBase
         return Ok(result);
     }
 
-    [EnableRateLimiting("comic-vine-import")]
+    [EnableRateLimiting(RateLimitPolicies.ComicVineImport)]
     [HttpPost("import-comic-vine-volume")]
     public async Task<ActionResult<ImportComicVineVolumeResult>> ImportComicVineVolume(
     [FromBody] ImportComicVineVolumeRequest request,

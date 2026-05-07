@@ -46,33 +46,33 @@ public sealed class ImportComicVineVolumeHandler
             command.ApiDetailUrl,
             cancellationToken);
 
-                if (existingEdition is not null && existingEdition.Tomes.Count > 0)
-                {
-                    var existingUserCollection = await _userCollectionRepository.GetByUserIdAndEditionIdAsync(
-                        command.UserId,
-                        existingEdition.Id,
-                        cancellationToken);
+        if (existingEdition is not null && existingEdition.Tomes.Count > 0)
+        {
+            var existingUserCollection = await _userCollectionRepository.GetByUserIdAndEditionIdAsync(
+                command.UserId,
+                existingEdition.Id,
+                cancellationToken);
 
-                    if (existingUserCollection is null)
-                    {
-                        existingUserCollection = new UserCollection(
-                            userId: command.UserId,
-                            editionId: existingEdition.Id);
+            if (existingUserCollection is null)
+            {
+                existingUserCollection = new UserCollection(
+                    userId: command.UserId,
+                    editionId: existingEdition.Id);
 
-                        await _userCollectionRepository.AddAsync(existingUserCollection, cancellationToken);
-                        await _userCollectionRepository.SaveChangesAsync(cancellationToken);
-                    }
+                await _userCollectionRepository.AddAsync(existingUserCollection, cancellationToken);
+                await _userCollectionRepository.SaveChangesAsync(cancellationToken);
+            }
 
-                    return new ImportComicVineVolumeResult(
-                        EditionId: existingEdition.Id,
-                        UserCollectionId: existingUserCollection.Id,
-                        ComicVineVolumeId: existingEdition.ComicVineVolumeId,
-                        Title: existingEdition.Series.Title,
-                        PublisherName: existingEdition.PublisherName,
-                        TotalIssues: existingEdition.Tomes.Count,
-                        ImportedTomes: existingEdition.Tomes.Count,
-                        IsCompleted: true);
-                }
+            return new ImportComicVineVolumeResult(
+                EditionId: existingEdition.Id,
+                UserCollectionId: existingUserCollection.Id,
+                ComicVineVolumeId: existingEdition.ComicVineVolumeId,
+                Title: existingEdition.Series.Title,
+                PublisherName: existingEdition.PublisherName,
+                TotalIssues: existingEdition.Tomes.Count,
+                ImportedTomes: existingEdition.Tomes.Count,
+                IsCompleted: true);
+        }
 
         var volume = await _comicVineClient.GetVolumeByApiDetailUrlAsync(
             command.ApiDetailUrl,
@@ -159,6 +159,16 @@ public sealed class ImportComicVineVolumeHandler
 
         var importedTomes = 0;
 
+        var existingTomes = await _tomeRepository.GetByEditionIdAsync(
+            edition.Id,
+            cancellationToken);
+
+        var existingTomesByApiDetailUrl = existingTomes
+            .Where(tome => !string.IsNullOrWhiteSpace(tome.ComicVineApiDetailUrl))
+            .ToDictionary(
+                tome => tome.ComicVineApiDetailUrl,
+                StringComparer.OrdinalIgnoreCase);
+
         var issueSummaries = volume.Issues
             .OrderBy(issue => issue.NormalizedNumber ?? int.MaxValue)
             .ThenBy(issue => issue.IssueNumber, StringComparer.OrdinalIgnoreCase)
@@ -175,9 +185,9 @@ public sealed class ImportComicVineVolumeHandler
                 continue;
             }
 
-            var existingTome = await _tomeRepository.GetByComicVineApiDetailUrlAsync(
+            existingTomesByApiDetailUrl.TryGetValue(
                 issueDetail.ApiDetailUrl,
-                cancellationToken);
+                out var existingTome);
 
             if (existingTome is null)
             {
@@ -194,6 +204,7 @@ public sealed class ImportComicVineVolumeHandler
                     siteDetailUrl: issueDetail.SiteDetailUrl);
 
                 await _tomeRepository.AddAsync(tome, cancellationToken);
+                existingTomesByApiDetailUrl[tome.ComicVineApiDetailUrl] = tome;
             }
             else
             {

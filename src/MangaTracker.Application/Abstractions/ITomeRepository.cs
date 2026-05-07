@@ -18,4 +18,8 @@ public interface ITomeRepository
 
     Task SaveChangesAsync(
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyCollection<Tome>> GetByEditionIdAsync(
+        Guid editionId,
+        CancellationToken cancellationToken = default);
 }

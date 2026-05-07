@@ -36,6 +36,15 @@ public sealed class TomeRepository : ITomeRepository
                 cancellationToken);
     }
 
+    public async Task<IReadOnlyCollection<Tome>> GetByEditionIdAsync(
+        Guid editionId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.Tomes
+            .Where(tome => tome.EditionId == editionId)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task AddAsync(
         Tome tome,
         CancellationToken cancellationToken = default)
