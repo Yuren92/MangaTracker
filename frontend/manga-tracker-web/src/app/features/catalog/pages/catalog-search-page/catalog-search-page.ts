@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal, OnInit } from '@angular/core';
+import { Component, computed, ElementRef, inject, OnInit, signal, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { CatalogSearchResult, ComicVineVolumePreview } from '../../models/catalog.models';
@@ -12,7 +12,10 @@ import { getApiErrorMessage } from '../../../../core/http/api-error';
   templateUrl: './catalog-search-page.html',
   styleUrl: './catalog-search-page.scss'
 })
-export class CatalogSearchPage implements OnInit{
+export class CatalogSearchPage implements OnInit {
+  @ViewChild('volumePreviewSection')
+  private readonly volumePreviewSection?: ElementRef<HTMLElement>;
+
   private readonly catalogApi = inject(CatalogApi);
   private readonly collectionsApi = inject(CollectionsApi);
 
@@ -87,6 +90,7 @@ export class CatalogSearchPage implements OnInit{
       next: volume => {
         this.selectedVolume.set(volume);
         this.isPreviewLoading.set(false);
+        this.scrollToVolumePreview();
       },
       error: error => {
         this.previewErrorMessage.set(
@@ -153,6 +157,15 @@ export class CatalogSearchPage implements OnInit{
 
         this.isImporting.set(false);
       }
+    });
+  }
+
+  private scrollToVolumePreview(): void {
+    setTimeout(() => {
+      this.volumePreviewSection?.nativeElement.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+      });
     });
   }
 

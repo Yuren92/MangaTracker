@@ -57,7 +57,7 @@
   }
 
   @if (selectedVolume(); as volume) {
-    <section class="preview-card">
+    <section #volumePreviewSection class="preview-card">
       <div class="preview-cover">
         @if (volume.imageUrl) {
           <img [src]="volume.imageUrl" [alt]="volume.name" />
