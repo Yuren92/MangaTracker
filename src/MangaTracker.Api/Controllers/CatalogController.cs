@@ -1,5 +1,6 @@
 ﻿using MangaTracker.Application.Abstractions;
 using MangaTracker.Application.ComicVine.Dtos;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -17,6 +18,7 @@ public sealed class CatalogController : ControllerBase
         _comicVineClient = comicVineClient;
     }
 
+    [EnableRateLimiting("external-api")]
     [HttpGet("search")]
     public async Task<ActionResult<IReadOnlyCollection<ComicVineVolumeSearchResultDto>>> Search(
         [FromQuery] string query,
@@ -36,6 +38,7 @@ public sealed class CatalogController : ControllerBase
         return Ok(results);
     }
 
+    [EnableRateLimiting("external-api")]
     [HttpPost("comic-vine/volumes/preview")]
     public async Task<ActionResult<ComicVineVolumeDetailDto>> PreviewComicVineVolume(
     [FromBody] ComicVineVolumePreviewRequest request,

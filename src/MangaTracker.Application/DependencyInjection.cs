@@ -13,7 +13,6 @@ using MangaTracker.Application.Collections.ImportComicVineVolume;
 using MangaTracker.Application.Collections.MarkAllTomesAsOwned;
 using MangaTracker.Application.Collections.MarkTomeAsOwned;
 using MangaTracker.Application.Collections.UnmarkTomeAsOwned;
-using MangaTracker.Application.ComicVine.GetIssueDetailsPage;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MangaTracker.Application;
@@ -30,7 +29,6 @@ public static class DependencyInjection
         services.AddScoped<ForgotPasswordHandler>();
         services.AddScoped<ResetPasswordHandler>();
         services.AddScoped<ChangePasswordHandler>();
-        services.AddScoped<GetIssueDetailsPageHandler>();
         services.AddScoped<GetUserCollectionsHandler>();
         services.AddScoped<GetUserCollectionDetailHandler>();
         services.AddScoped<MarkTomeAsOwnedHandler>();
