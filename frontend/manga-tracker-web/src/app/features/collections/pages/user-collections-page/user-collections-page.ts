@@ -3,6 +3,7 @@ import { RouterLink } from '@angular/router';
 
 import { UserCollectionSummary } from '../../models/collections.models';
 import { CollectionsApi } from '../../services/collections-api';
+import { getApiErrorMessage } from '../../../../core/http/api-error';
 
 @Component({
   selector: 'app-user-collections-page',
@@ -32,7 +33,7 @@ export class UserCollectionsPage implements OnInit {
       },
       error: error => {
         this.errorMessage.set(
-          error?.error?.detail ?? 'No se han podido cargar tus colecciones.'
+          getApiErrorMessage(error, 'No se han podido cargar tus colecciones.')
         );
 
         this.collections.set([]);

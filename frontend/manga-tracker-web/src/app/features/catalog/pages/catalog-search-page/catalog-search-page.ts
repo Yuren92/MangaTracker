@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 import { CatalogSearchResult, ComicVineVolumePreview } from '../../models/catalog.models';
 import { CatalogApi } from '../../services/catalog-api';
 import { CollectionsApi } from '../../../collections/services/collections-api';
+import { getApiErrorMessage } from '../../../../core/http/api-error';
 
 @Component({
   selector: 'app-catalog-search-page',
@@ -65,7 +66,7 @@ export class CatalogSearchPage implements OnInit{
       },
       error: error => {
         this.errorMessage.set(
-          error?.error?.detail ?? 'No se ha podido buscar en el catálogo.'
+          getApiErrorMessage(error, 'No se ha podido buscar en el catálogo.')
         );
 
         this.results.set([]);
@@ -89,7 +90,7 @@ export class CatalogSearchPage implements OnInit{
       },
       error: error => {
         this.previewErrorMessage.set(
-          error?.error?.detail ?? 'No se ha podido cargar la vista previa.'
+          getApiErrorMessage(error, 'No se ha podido cargar la vista previa.')
         );
 
         this.isPreviewLoading.set(false);
@@ -147,7 +148,7 @@ export class CatalogSearchPage implements OnInit{
       },
       error: error => {
         this.importErrorMessage.set(
-          error?.error?.detail ?? 'No se ha podido importar esta edición.'
+          getApiErrorMessage(error, 'No se ha podido importar esta edición.')
         );
 
         this.isImporting.set(false);

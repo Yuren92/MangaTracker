@@ -3,6 +3,7 @@ import { RouterLink } from '@angular/router';
 
 import { PendingTome } from '../../models/collections.models';
 import { CollectionsApi } from '../../services/collections-api';
+import { getApiErrorMessage } from '../../../../core/http/api-error';
 
 @Component({
   selector: 'app-pending-tomes-page',
@@ -32,7 +33,7 @@ export class PendingTomesPage implements OnInit {
       },
       error: error => {
         this.errorMessage.set(
-          error?.error?.detail ?? 'No se han podido cargar los tomos pendientes.'
+          getApiErrorMessage(error, 'No se han podido cargar los tomos pendientes.')
         );
 
         this.pendingTomes.set([]);

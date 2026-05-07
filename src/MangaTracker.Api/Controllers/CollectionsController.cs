@@ -8,6 +8,7 @@ using MangaTracker.Application.Collections.MarkTomeAsOwned;
 using MangaTracker.Application.Collections.UnmarkTomeAsOwned;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace MangaTracker.Api.Controllers;
 
@@ -113,6 +114,7 @@ public sealed class CollectionsController : ControllerBase
         return Ok(result);
     }
 
+    [EnableRateLimiting("comic-vine-import")]
     [HttpPost("import-comic-vine-volume")]
     public async Task<ActionResult<ImportComicVineVolumeResult>> ImportComicVineVolume(
     [FromBody] ImportComicVineVolumeRequest request,

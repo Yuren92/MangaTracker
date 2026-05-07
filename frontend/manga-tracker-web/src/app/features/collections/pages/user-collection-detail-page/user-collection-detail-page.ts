@@ -3,6 +3,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 
 import { CollectionsApi } from '../../services/collections-api';
 import { UserCollectionDetail } from '../../models/collections.models';
+import { getApiErrorMessage } from '../../../../core/http/api-error';
 
 type TomeFilter = 'all' | 'owned' | 'pending';
 type TomeOrder = 'normal' | 'reverse';
@@ -78,7 +79,9 @@ export class UserCollectionDetailPage implements OnInit {
         this.isLoading.set(false);
       },
       error: (error) => {
-        this.errorMessage.set(error?.error?.detail ?? 'No se ha podido cargar la colección.');
+        this.errorMessage.set(
+          getApiErrorMessage(error, 'No se ha podido cargar la colección.')
+        );
 
         this.isLoading.set(false);
       },
@@ -118,8 +121,9 @@ export class UserCollectionDetailPage implements OnInit {
         this.setTomeUpdating(tomeId, false);
       },
       error: (error) => {
-        this.errorMessage.set(error?.error?.detail ?? 'No se ha podido actualizar el tomo.');
-
+        this.errorMessage.set(
+          getApiErrorMessage(error, 'No se ha podido actualizar el tomo.')
+        );
         this.setTomeUpdating(tomeId, false);
       },
     });
@@ -175,7 +179,7 @@ export class UserCollectionDetailPage implements OnInit {
       },
       error: error => {
         this.errorMessage.set(
-          error?.error?.detail ?? 'No se han podido marcar todos los tomos.'
+          getApiErrorMessage(error, 'No se han podido marcar todos los tomos.')
         );
 
         this.isMarkingAllAsOwned.set(false);

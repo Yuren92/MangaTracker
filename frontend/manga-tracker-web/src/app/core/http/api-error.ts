@@ -21,6 +21,10 @@ export function getApiErrorMessage(
       return problemDetails.title;
     }
 
+    if (error.status === 429) {
+      return 'Has hecho demasiadas peticiones. Espera unos segundos y vuelve a intentarlo.';
+    }
+
     if (error.status === 0) {
       return 'No se ha podido conectar con el servidor.';
     }
