@@ -364,6 +364,7 @@ FodyWeavers.xsd
 
 # Local secrets
 src/MangaTracker.Api/appsettings.Development.json
+src/MangaTracker.Api/appsettings.Production.json
 
 # Build results
 bin/
