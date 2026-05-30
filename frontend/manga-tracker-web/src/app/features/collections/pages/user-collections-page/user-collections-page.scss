@@ -96,7 +96,7 @@ h1 {
 
 .collections-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
   gap: 18px;
 }
 
@@ -110,7 +110,7 @@ h1 {
 }
 
 .cover {
-  height: 260px;
+  height: 290px;
   background: #f3f4f6;
   display: grid;
   place-items: center;
@@ -134,17 +134,19 @@ h1 {
 }
 
 .collection-content {
-  padding: 16px;
+  padding: 14px;
   display: flex;
   flex: 1;
   flex-direction: column;
   justify-content: space-between;
-  gap: 16px;
+  gap: 14px;
+  background: white;
 
   h2 {
     margin: 0;
     color: #111827;
-    font-size: 1.1rem;
+    font-size: 1rem;
+    line-height: 1.25;
   }
 }
 
