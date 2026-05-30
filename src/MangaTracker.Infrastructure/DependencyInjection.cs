@@ -38,12 +38,26 @@ public static class DependencyInjection
         services.Configure<AuthCleanupOptions>(
             configuration.GetSection("AuthCleanup"));
 
+        services.Configure<SmtpEmailOptions>(
+            configuration.GetSection("Smtp"));
+
         services.AddHostedService<AuthCleanupBackgroundService>();
 
         services.AddScoped<ITokenGenerator, TokenGenerator>();
         services.AddScoped<ITokenHasher, TokenHasher>();
         services.AddScoped<IAuthLinkBuilder, AuthLinkBuilder>();
-        services.AddScoped<IEmailSender, ConsoleEmailSender>();
+
+        var smtpSection = configuration.GetSection("Smtp");
+        var smtpHost = smtpSection["Host"];
+
+        if (string.IsNullOrWhiteSpace(smtpHost))
+        {
+            services.AddScoped<IEmailSender, ConsoleEmailSender>();
+        }
+        else
+        {
+            services.AddScoped<IEmailSender, SmtpEmailSender>();
+        }
 
         services.Configure<JwtOptions>(
             configuration.GetSection("Jwt"));
