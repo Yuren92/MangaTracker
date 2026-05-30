@@ -1,69 +1,80 @@
 # Manga Tracker
 
-Manga Tracker is a full-stack web application for managing a personal physical manga collection.
+Manga Tracker es una aplicación web full-stack para gestionar una colección física de manga.
 
-The project is built with **ASP.NET Core** and **Angular**, using Comic Vine as the external catalog source. Users can search manga editions, preview Comic Vine volumes, import an edition into their personal collection, track owned tomes, and see which tomes are still pending.
+La aplicación permite buscar series y ediciones usando Comic Vine, importar una edición concreta a tu colección personal, marcar qué tomos tienes comprados y consultar qué tomos te faltan. El objetivo del proyecto no es solo construir una aplicación CRUD, sino demostrar una arquitectura limpia, mantenible y cercana a un proyecto real: autenticación, integración con APIs externas, sincronización de datos, gestión de errores, envío real de correos y frontend moderno con Angular.
 
-The goal of this project is not just to build a CRUD application, but to demonstrate a clean, maintainable architecture with authentication, external API integration, rate limiting, error handling, and a modern Angular frontend.
+## Demo
 
----
+* Frontend: https://manga-tracker-teal.vercel.app
+* API: http://mangatracker.runasp.net
+* Repositorio: https://github.com/Yuren92/MangaTracker
 
-## Main features
+## Funcionalidades principales
 
-- User registration and login with JWT authentication.
-- Email confirmation flow using secure tokens.
-- Password recovery and reset flow.
-- Authenticated user context through JWT claims.
-- Comic Vine catalog search.
-- Comic Vine volume preview before import.
-- Import Comic Vine volumes as collection editions.
-- Import tome/issue data from Comic Vine.
-- Track owned and pending tomes per user.
-- View all user collections.
-- View detailed collection progress.
-- Mark individual tomes as owned or pending.
-- Mark all tomes in a collection as owned.
-- Global pending tomes view.
-- Centralized API error handling with `ProblemDetails`.
-- Rate limiting for sensitive and external API endpoints.
-- Health check endpoint.
-- Unit tests for the core Comic Vine import use case.
+* Registro de usuarios.
+* Confirmación de cuenta por email.
+* Login con JWT.
+* Recuperación y restablecimiento de contraseña por email.
+* Envío real de correos mediante SMTP/Brevo.
+* Búsqueda de series/ediciones en Comic Vine.
+* Vista previa de una edición antes de importarla.
+* Importación de ediciones desde Comic Vine.
+* Importación de tomos/issues asociados a una edición.
+* Gestión de colecciones personales por usuario.
+* Vista global de colecciones.
+* Vista de detalle de una colección.
+* Marcado individual de tomos como comprados o pendientes.
+* Marcado masivo de todos los tomos de una colección como comprados.
+* Vista global de tomos pendientes.
+* Marcado de tomos como comprados directamente desde la pantalla de pendientes.
+* Eliminación de colecciones del usuario.
+* Sincronización automática de colecciones con Comic Vine.
+* Control de errores centralizado con `ProblemDetails`.
+* Rate limiting en endpoints sensibles y en endpoints que consumen APIs externas.
+* Health check público.
+* Frontend responsive.
+* Tests unitarios para casos de uso principales.
 
----
-
-## Tech stack
+## Stack tecnológico
 
 ### Backend
 
-- ASP.NET Core
-- C#
-- Entity Framework Core
-- SQL Server
-- JWT Bearer Authentication
-- ASP.NET Core Rate Limiting
-- ASP.NET Core Health Checks
-- xUnit
-- FluentAssertions
-- NSubstitute
+* ASP.NET Core
+* C#
+* Entity Framework Core
+* SQL Server
+* JWT Bearer Authentication
+* ASP.NET Core Rate Limiting
+* ASP.NET Core Health Checks
+* SMTP para envío de correos
+* xUnit
+* FluentAssertions
+* NSubstitute
 
 ### Frontend
 
-- Angular
-- Standalone components
-- Signals
-- Modern control flow with `@if` / `@for`
-- No NgModules
-- Zoneless setup
-- TypeScript
-- SCSS
+* Angular
+* Standalone components
+* Signals
+* Control flow moderno con `@if` / `@for`
+* TypeScript
+* SCSS
+* Build desplegado en Vercel
 
-### External API
+### APIs externas
 
-- Comic Vine API
+* Comic Vine API
+* Brevo SMTP
 
----
+### Infraestructura
 
-## Project structure
+* Frontend desplegado en Vercel.
+* Backend desplegado en MonsterASP.NET.
+* Base de datos SQL Server remota.
+* Proxy de API mediante `vercel.json` para evitar problemas de mixed content entre Vercel y el backend HTTP.
+
+## Estructura del proyecto
 
 ```txt
 src/
@@ -79,220 +90,306 @@ tests/
   MangaTracker.Tests
 ```
 
----
+## Arquitectura
 
-## Architecture overview
-
-The backend follows a layered architecture inspired by Clean Architecture and DDD principles.
+El backend sigue una arquitectura por capas inspirada en Clean Architecture y DDD.
 
 ### `MangaTracker.Domain`
 
-Contains the core domain model and business entities.
+Contiene el modelo de dominio y las entidades principales de negocio.
 
-Main entities:
+Entidades principales:
 
-- `User`
-- `UserToken`
-- `Series`
-- `Edition`
-- `Tome`
-- `UserCollection`
-- `UserOwnedTome`
+* `User`
+* `UserToken`
+* `Series`
+* `Edition`
+* `Tome`
+* `UserCollection`
+* `UserOwnedTome`
+
+El dominio encapsula reglas básicas como validaciones de entidades, normalización de datos y actualización de detalles de ediciones y tomos.
 
 ### `MangaTracker.Application`
 
-Contains application use cases, commands, queries, handlers, DTOs, and abstractions.
+Contiene los casos de uso de la aplicación.
 
-This layer defines interfaces such as repositories and external API clients, but does not depend on infrastructure details.
+Incluye:
 
-Examples:
+* Commands
+* Queries
+* Handlers
+* DTOs
+* Excepciones de aplicación
+* Abstracciones de repositorios
+* Abstracciones para servicios externos
 
-- Authentication use cases.
-- Collection use cases.
-- Comic Vine import use case.
-- `IComicVineClient` abstraction.
-- Repository abstractions.
+Ejemplos:
+
+* Registro de usuario.
+* Login.
+* Confirmación de email.
+* Recuperación de contraseña.
+* Importación de volúmenes desde Comic Vine.
+* Marcado de tomos como comprados.
+* Eliminación de colecciones.
+* Sincronización de colecciones.
+* Consulta de tomos pendientes.
+
+Esta capa define las interfaces necesarias, pero no depende de detalles técnicos de infraestructura.
 
 ### `MangaTracker.Infrastructure`
 
-Contains technical implementations.
+Contiene las implementaciones técnicas.
 
-Examples:
+Incluye:
 
-- Entity Framework Core `DbContext`.
-- SQL Server repositories.
-- Comic Vine HTTP client.
-- JWT token generation.
-- Password hashing.
-- Token hashing.
-- Email sender implementation.
-- Background cleanup service for expired tokens and unconfirmed users.
+* `DbContext` de Entity Framework Core.
+* Repositorios SQL Server.
+* Cliente HTTP para Comic Vine.
+* Generación de JWT.
+* Hashing de contraseñas.
+* Hashing de tokens.
+* Envío de correos por consola en desarrollo.
+* Envío de correos por SMTP en producción.
+* Servicio en background para limpieza de usuarios no confirmados y tokens expirados.
 
 ### `MangaTracker.Api`
 
-Contains the HTTP API layer.
+Contiene la capa HTTP.
 
-Examples:
+Incluye:
 
-- Controllers.
-- JWT configuration.
-- CORS configuration.
-- Rate limiting policies.
-- Health checks.
-- Global exception handling middleware.
-- Current user service based on authenticated JWT claims.
+* Controllers.
+* Configuración JWT.
+* Configuración CORS.
+* Rate limiting.
+* Health checks.
+* Middleware global de excepciones.
+* Servicio de usuario actual basado en claims JWT.
 
-Controllers are intentionally kept thin. Business logic lives in the application and domain layers.
+Los controllers se mantienen deliberadamente finos. La lógica de negocio vive en `Application` y `Domain`.
 
----
+## Modelo de dominio
 
-## Domain model
-
-The application models manga collections around physical editions and tomes.
+La aplicación diferencia entre datos de catálogo y datos propios del usuario.
 
 ### `Series`
 
-Represents the base work, for example `One Piece` or `Berserk`.
+Representa la obra base, por ejemplo `One Piece`, `Berserk` o `Dragon Ball`.
 
 ### `Edition`
 
-Represents a concrete publication/edition of a series, usually linked to a Comic Vine volume.
+Representa una edición concreta de una serie. En términos de Comic Vine, está asociada normalmente a un `volume`.
 
-Different publishers, languages, or publication formats can be represented as different editions.
+Una misma serie puede tener varias ediciones según idioma, editorial, país o formato.
 
 ### `Tome`
 
-Represents a physical volume/tome inside an edition. In Comic Vine terms, this is imported from an `issue`.
+Representa un tomo físico dentro de una edición. En Comic Vine, se importa a partir de un `issue`.
 
 ### `UserCollection`
 
-Represents that a user is following or collecting a specific edition.
+Representa que un usuario sigue o colecciona una edición concreta.
 
 ### `UserOwnedTome`
 
-Represents that a user owns a specific tome from a collection.
+Representa que un usuario posee un tomo concreto de una colección.
 
-This allows the application to distinguish between catalog data and user-specific ownership data.
+Esta separación permite que `Series`, `Edition` y `Tome` funcionen como catálogo compartido, mientras que `UserCollection` y `UserOwnedTome` contienen la información específica de cada usuario.
 
----
+## Flujo de Comic Vine
 
-## Comic Vine flow
-
-The current catalog flow is based on Comic Vine.
+El flujo principal de catálogo funciona así:
 
 ```txt
-User searches catalog
-  -> Backend searches Comic Vine volumes
-  -> User selects a volume
-  -> Backend previews the volume and its issues
-  -> User imports the volume
-  -> Backend stores Series, Edition and Tomes
-  -> UserCollection is created for the authenticated user
-  -> User marks owned tomes
-  -> Pending tomes are calculated from the stored edition data
+El usuario busca una serie
+  -> El backend consulta Comic Vine
+  -> El usuario elige una edición concreta
+  -> El backend muestra una vista previa
+  -> El usuario importa la edición
+  -> El backend guarda Series, Edition y Tomes
+  -> Se crea una UserCollection para el usuario autenticado
+  -> El usuario marca los tomos que ya tiene comprados
+  -> La aplicación calcula automáticamente los tomos pendientes
 ```
 
-The Angular frontend never calls Comic Vine directly. All external API calls go through the ASP.NET Core backend.
+El frontend nunca llama directamente a Comic Vine. Todas las llamadas pasan por el backend.
 
-This keeps the Comic Vine API key private and allows the backend to normalize external data into the internal domain model.
+Esto permite:
 
----
+* Mantener privada la API key de Comic Vine.
+* Normalizar los datos externos.
+* Controlar rate limits.
+* Centralizar errores.
+* Evitar lógica de integración externa en Angular.
 
-## External API protection
+## Sincronización automática de colecciones
 
-Comic Vine requests are protected at the backend level.
+Manga Tracker incluye sincronización de colecciones con Comic Vine.
 
-The API uses rate limiting policies for endpoints that depend on external APIs:
+Cuando el usuario entra en “Mis colecciones”, la pantalla carga rápido usando los datos locales y, en paralelo, lanza una sincronización automática contra el backend.
 
-| Policy | Limit | Used by |
-|---|---:|---|
-| `external-api` | 30 requests per minute per IP | Catalog search and volume preview |
-| `comic-vine-import` | 5 requests per minute per IP | Comic Vine volume import |
+El backend:
 
-The import endpoint has a stricter limit because importing a volume can trigger multiple internal Comic Vine requests to fetch tome/issue details.
+* Revisa las colecciones del usuario.
+* Comprueba qué ediciones necesitan sincronización.
+* Evita sincronizar repetidamente ediciones actualizadas recientemente.
+* Consulta Comic Vine si es necesario.
+* Añade tomos nuevos que no existían en la base de datos.
+* Actualiza contadores de tomos.
+* Permite que los nuevos tomos aparezcan automáticamente como pendientes.
 
-Rate limit responses return `ProblemDetails` with HTTP `429 Too Many Requests`.
-
----
-
-## Backend endpoints
-
-### Authentication
-
-```http
-POST /api/auth/register
-POST /api/auth/login
-GET  /api/auth/me
-POST /api/auth/confirm-email
-POST /api/auth/resend-confirmation-email
-POST /api/auth/forgot-password
-POST /api/auth/reset-password
-POST /api/auth/change-password
-```
-
-### Catalog
-
-```http
-GET  /api/catalog/search?query=one%20piece
-POST /api/catalog/comic-vine/volumes/preview
-```
-
-### Collections
-
-```http
-POST   /api/collections/import-comic-vine-volume
-GET    /api/collections
-GET    /api/collections/{collectionId}
-GET    /api/collections/pending-tomes
-POST   /api/collections/{collectionId}/tomes/{tomeId}/owned
-DELETE /api/collections/{collectionId}/tomes/{tomeId}/owned
-POST   /api/collections/{collectionId}/tomes/owned-all
-```
-
-### Health
-
-```http
-GET /health
-```
-
----
-
-## Frontend routes
+Esto permite cubrir casos como:
 
 ```txt
-/                         -> redirects to /collections
-/catalog/search
-/collections
-/collections/:collectionId
-/collections/pending-tomes
+El usuario tiene One Piece importado con 115 tomos.
+Comic Vine añade el tomo 116.
+La aplicación sincroniza la edición.
+El tomo 116 aparece como pendiente.
 ```
 
-Main frontend pages:
+## Autenticación y correos
 
-- `CatalogSearchPage`
-- `UserCollectionsPage`
-- `UserCollectionDetailPage`
-- `PendingTomesPage`
+La autenticación usa JWT.
 
-The Angular services use `environment.apiUrl` to call the backend.
+El flujo de usuario incluye:
 
----
+* Registro.
+* Confirmación de email.
+* Login.
+* Cambio de contraseña.
+* Recuperación de contraseña.
+* Reset de contraseña mediante token seguro.
 
-## Local configuration
+Los correos se envían usando una abstracción:
 
-Create a local development settings file:
+```csharp
+IEmailSender
+```
+
+Implementaciones:
+
+* `ConsoleEmailSender`: usado cuando no hay SMTP configurado.
+* `SmtpEmailSender`: usado cuando hay configuración SMTP.
+
+Esto permite usar logs en desarrollo y correos reales en producción.
+
+## Seguridad y configuración
+
+El proyecto usa configuración externa para secretos.
+
+No deben subirse al repositorio:
+
+* Connection strings reales.
+* JWT secret keys.
+* Comic Vine API keys.
+* Credenciales SMTP.
+* Passwords de base de datos.
+
+Archivos sensibles recomendados fuera de Git:
 
 ```txt
-src/MangaTracker.Api/appsettings.Development.json
+appsettings.Development.json
+appsettings.Production.json
 ```
 
-Use this file as a reference:
+El archivo `appsettings.json` solo contiene estructura base y valores vacíos de ejemplo.
+
+## Rate limiting
+
+El backend aplica rate limiting en endpoints que pueden consumir recursos externos o sensibles.
+
+Ejemplos:
+
+* Búsqueda en catálogo.
+* Vista previa de volúmenes.
+* Importación desde Comic Vine.
+* Sincronización de colecciones.
+
+Esto ayuda a proteger la API y a no abusar de Comic Vine.
+
+## Gestión de errores
+
+La API usa un middleware global de excepciones que transforma errores conocidos en respuestas `ProblemDetails`.
+
+Ejemplos:
+
+* `ValidationException` -> `400 Bad Request`
+* `NotFoundException` -> `404 Not Found`
+* `ConflictException` -> `409 Conflict`
+* `DomainException` -> `400 Bad Request`
+* Errores inesperados -> `500 Internal Server Error`
+
+En Angular, los errores se procesan con un helper común para mostrar mensajes claros al usuario.
+
+## Frontend
+
+El frontend está construido con Angular moderno.
+
+Características:
+
+* Standalone components.
+* Signals.
+* Templates con `@if` y `@for`.
+* Servicios separados para API.
+* Interceptor JWT.
+* Guards de autenticación.
+* Diseño responsive.
+* Cards unificadas para catálogo, colecciones, pendientes y detalle.
+* Menú de usuario con cierre al hacer click fuera.
+* Proxy de API mediante `vercel.json`.
+
+## Proxy en Vercel
+
+El frontend se sirve por HTTPS en Vercel, mientras que el backend gratuito está disponible por HTTP.
+
+Para evitar errores de mixed content, el frontend llama a rutas relativas:
 
 ```txt
-src/MangaTracker.Api/appsettings.Example.json
+/api/...
 ```
 
-Example configuration:
+Y Vercel redirige internamente esas peticiones al backend:
+
+```json
+{
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "http://mangatracker.runasp.net/api/:path*"
+    },
+    {
+      "source": "/:path*",
+      "destination": "/index.html"
+    }
+  ]
+}
+```
+
+Esto también permite que las rutas internas de Angular funcionen al recargar la página.
+
+## Puesta en marcha local
+
+### Requisitos
+
+* .NET SDK
+* Node.js
+* npm
+* SQL Server o SQL Server Express
+* Angular CLI
+* API key de Comic Vine
+
+### Backend
+
+Desde la raíz del proyecto:
+
+```powershell
+dotnet restore
+dotnet build
+```
+
+Configura `appsettings.Development.json` en `src/MangaTracker.Api` con tus valores locales:
 
 ```json
 {
@@ -308,10 +405,6 @@ Example configuration:
   "AuthLinks": {
     "FrontendBaseUrl": "http://localhost:4200"
   },
-  "AuthCleanup": {
-    "IntervalHours": 6,
-    "DeleteUnconfirmedUsersAfterHours": 48
-  },
   "Cors": {
     "AllowedOrigins": [
       "http://localhost:4200"
@@ -320,159 +413,123 @@ Example configuration:
   "ComicVine": {
     "BaseUrl": "https://comicvine.gamespot.com/api/",
     "ApiKey": "YOUR_COMIC_VINE_API_KEY"
+  },
+  "Smtp": {
+    "Host": "",
+    "Port": 587,
+    "Username": "",
+    "Password": "",
+    "FromEmail": "",
+    "FromName": "Manga Tracker",
+    "EnableSsl": true
   }
 }
 ```
 
-Do not commit real secrets. Local development settings should stay ignored by Git.
-
----
-
-## Running the backend locally
-
-From the repository root:
+Aplica migraciones:
 
 ```powershell
-dotnet restore
-dotnet build
+dotnet ef database update `
+  --project src\MangaTracker.Infrastructure\MangaTracker.Infrastructure.csproj `
+  --startup-project src\MangaTracker.Api\MangaTracker.Api.csproj
+```
+
+Levanta la API:
+
+```powershell
 dotnet run --project src\MangaTracker.Api\MangaTracker.Api.csproj
 ```
 
-Check the API health endpoint:
+Health check:
 
-```http
-GET http://localhost:5243/health
+```txt
+http://localhost:5243/health
 ```
 
-Depending on your local launch profile, the API port may be different.
+### Frontend
 
----
-
-## Running the frontend locally
-
-From the Angular project folder:
+Entra en el proyecto Angular:
 
 ```powershell
-cd frontend\manga-tracker-web
+cd frontend/manga-tracker-web
 npm install
 npm start
 ```
 
-The frontend is expected to run at:
+La app local estará disponible en:
 
 ```txt
 http://localhost:4200
 ```
 
-Make sure the frontend environment points to the backend API URL.
-
----
-
-## Database migrations
-
-Create a migration:
-
-```powershell
-dotnet ef migrations add MigrationName --project src\MangaTracker.Infrastructure\MangaTracker.Infrastructure.csproj --startup-project src\MangaTracker.Api\MangaTracker.Api.csproj --output-dir Persistence\Migrations
-```
-
-Apply migrations:
-
-```powershell
-dotnet ef database update --project src\MangaTracker.Infrastructure\MangaTracker.Infrastructure.csproj --startup-project src\MangaTracker.Api\MangaTracker.Api.csproj
-```
-
----
-
 ## Tests
 
-Run all tests:
+Para ejecutar los tests:
 
 ```powershell
 dotnet test
 ```
 
-The test project currently focuses on the application layer and includes unit tests for the Comic Vine volume import use case.
+## Despliegue
 
-Covered scenarios include:
+### Frontend
 
-- Invalid user id.
-- Invalid Comic Vine API detail URL.
-- Missing Comic Vine volume.
-- Import limit validation.
-- Successful import of a new edition with user collection creation.
+El frontend está desplegado en Vercel.
 
----
+Configuración usada:
 
-## Security and reliability features
+```txt
+Root Directory: frontend/manga-tracker-web
+Build Command: npm run build
+Output Directory: dist/manga-tracker-web/browser
+```
 
-- Password hashing.
-- JWT Bearer Authentication.
-- Authenticated current user service.
-- Email confirmation tokens.
-- Password reset tokens.
-- Hashed user tokens in the database.
-- One-time token usage.
-- Previous token invalidation.
-- Automatic cleanup of expired tokens and unconfirmed users.
-- Configurable CORS.
-- Health checks.
-- Rate limiting for auth-sensitive and external API endpoints.
-- Stricter rate limiting for Comic Vine imports.
-- Centralized exception handling.
-- `ProblemDetails` responses for API errors.
-- Comic Vine API key kept server-side.
-- Comic Vine API detail URL validation.
-- Configured timeout and User-Agent for the Comic Vine HTTP client.
+### Backend
 
----
+El backend está desplegado en MonsterASP.NET mediante WebDeploy.
 
-## Notable technical decisions
+La base de datos usa SQL Server remoto.
 
-### Comic Vine instead of MyAnimeList
+Los secretos de producción se configuran en `appsettings.Production.json`, que no debe subirse al repositorio.
 
-The project initially explored MyAnimeList, but the current version uses Comic Vine because the application is focused on physical manga collections.
+### Base de datos
 
-Comic Vine provides volume and issue data, which maps better to physical editions and tomes.
+Para generar script SQL de migraciones:
 
-### Backend as external API boundary
+```powershell
+dotnet ef migrations script --idempotent `
+  --project src\MangaTracker.Infrastructure\MangaTracker.Infrastructure.csproj `
+  --startup-project src\MangaTracker.Api\MangaTracker.Api.csproj `
+  --output deploy\manga-tracker-migrations.sql
+```
 
-The frontend does not call Comic Vine directly. The backend owns external API integration, secrets, normalization, rate limiting, and error handling.
+## Estado del proyecto
 
-### Sequential issue import
+El proyecto incluye:
 
-Issue details are fetched sequentially during volume import to avoid overwhelming the external Comic Vine API and to keep imports predictable.
+* Aplicación funcional en producción.
+* Frontend desplegado.
+* Backend desplegado.
+* Base de datos remota.
+* Registro y login reales.
+* Confirmación de email real.
+* Recuperación de contraseña real.
+* Integración real con Comic Vine.
+* Gestión de colecciones.
+* Sincronización automática.
+* Vista responsive.
 
-### Edition-based collection model
+## Próximas mejoras posibles
 
-Users do not collect an abstract manga entry directly. They collect a specific edition, and ownership is tracked at tome level.
+* Añadir imágenes al README.
+* Mejorar filtros de búsqueda.
+* Añadir ordenación avanzada de colecciones.
+* Añadir dashboard/resumen inicial.
+* Añadir favoritos o wishlist.
+* Añadir paginación en sincronizaciones grandes.
+* Añadir integración con más fuentes de catálogo.
+* Añadir tests de integración para endpoints principales.
 
----
+## Autor
 
-## Current limitations
-
-- Email sending is currently implemented with a development-friendly sender.
-- Comic Vine import is synchronous.
-- Importing very large volumes is limited to protect the application and the external API.
-- The current edition grouping strategy is intentionally simple for V1.
-- Frontend end-to-end tests are not included yet.
-
----
-
-## Future improvements
-
-- Add production email provider integration.
-- Add more backend unit tests around collection ownership and domain rules.
-- Add frontend tests.
-- Add Docker support.
-- Add CI pipeline for build and tests.
-- Add deployment documentation.
-- Improve edition matching and duplicate detection.
-- Add screenshots or GIFs to the README.
-- Add richer collection statistics.
-
----
-
-## Purpose
-
-This project is intended as a portfolio application to demonstrate practical full-stack development skills with ASP.NET Core, Angular, clean architecture, authentication, external API integration, and maintainable application design.
+Proyecto desarrollado por Pedro Ballesta Garres.
