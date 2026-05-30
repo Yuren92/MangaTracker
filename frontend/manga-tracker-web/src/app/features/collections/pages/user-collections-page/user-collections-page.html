@@ -65,12 +65,27 @@
               </div>
             </div>
 
-            <a
-              class="secondary-link"
-              [routerLink]="['/collections', collection.id]"
-            >
-              Ver colección
-            </a>
+            <div class="collection-actions">
+              <a
+                class="secondary-link"
+                [routerLink]="['/collections', collection.id]"
+              >
+                Ver colección
+              </a>
+
+              <button
+                type="button"
+                class="danger-button"
+                [disabled]="deletingCollectionIds().has(collection.id)"
+                (click)="deleteCollection(collection.id, collection.title)"
+              >
+                @if (deletingCollectionIds().has(collection.id)) {
+                  Eliminando...
+                } @else {
+                  Eliminar
+                }
+              </button>
+            </div>
           </div>
         </article>
       }

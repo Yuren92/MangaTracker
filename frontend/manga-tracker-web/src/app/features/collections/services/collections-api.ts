@@ -38,6 +38,12 @@ export class CollectionsApi {
     );
   }
 
+  deleteCollection(collectionId: string) {
+    return this.http.delete(
+      `${this.apiUrl}/api/collections/${collectionId}`
+    );
+  }
+
   getPendingTomes() {
     return this.http.get<PendingTomesResponse>(
       `${this.apiUrl}/api/collections/pending-tomes`

@@ -70,4 +70,9 @@ public sealed class UserCollectionRepository : IUserCollectionRepository
             .Where(collection => collection.UserId == userId)
             .ToListAsync(cancellationToken);
     }
+
+    public void Remove(UserCollection userCollection)
+    {
+        _dbContext.UserCollections.Remove(userCollection);
+    }
 }

@@ -163,3 +163,33 @@ h1 {
     font-size: 0.8rem;
   }
 }
+
+.collection-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.collection-actions .secondary-link,
+.collection-actions .danger-button {
+  flex: 1;
+}
+
+.danger-button {
+  border: 0;
+  border-radius: 12px;
+  padding: 11px 14px;
+  background: #fee2e2;
+  color: #991b1b;
+  font-weight: 900;
+  cursor: pointer;
+
+  &:hover {
+    background: #fecaca;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}

@@ -17,6 +17,7 @@ export class UserCollectionsPage implements OnInit {
   readonly collections = signal<UserCollectionSummary[]>([]);
   readonly isLoading = signal(false);
   readonly errorMessage = signal<string | null>(null);
+  readonly deletingCollectionIds = signal<Set<string>>(new Set<string>());
 
   ngOnInit(): void {
     this.loadCollections();
@@ -39,6 +40,50 @@ export class UserCollectionsPage implements OnInit {
         this.collections.set([]);
         this.isLoading.set(false);
       }
+    });
+  }
+
+  deleteCollection(collectionId: string, title: string): void {
+    const confirmed = window.confirm(
+      `¿Seguro que quieres eliminar "${title}" de tus colecciones?`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    this.setCollectionDeleting(collectionId, true);
+    this.errorMessage.set(null);
+
+    this.collectionsApi.deleteCollection(collectionId).subscribe({
+      next: () => {
+        this.collections.update(collections =>
+          collections.filter(collection => collection.id !== collectionId)
+        );
+
+        this.setCollectionDeleting(collectionId, false);
+      },
+      error: error => {
+        this.errorMessage.set(
+          getApiErrorMessage(error, 'No se ha podido eliminar la colección.')
+        );
+
+        this.setCollectionDeleting(collectionId, false);
+      }
+    });
+  }
+
+  private setCollectionDeleting(collectionId: string, isDeleting: boolean): void {
+    this.deletingCollectionIds.update(current => {
+      const next = new Set(current);
+
+      if (isDeleting) {
+        next.add(collectionId);
+      } else {
+        next.delete(collectionId);
+      }
+
+      return next;
     });
   }
 }

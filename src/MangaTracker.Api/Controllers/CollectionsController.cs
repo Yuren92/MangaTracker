@@ -1,5 +1,6 @@
 ﻿using MangaTracker.Api.RateLimiting;
 using MangaTracker.Application.Abstractions.Auth;
+using MangaTracker.Application.Collections.DeleteUserCollection;
 using MangaTracker.Application.Collections.GetPendingTomes;
 using MangaTracker.Application.Collections.GetUserCollectionDetail;
 using MangaTracker.Application.Collections.GetUserCollections;
@@ -26,6 +27,7 @@ public sealed class CollectionsController : ControllerBase
     private readonly GetPendingTomesHandler _getPendingTomesHandler;
     private readonly ImportComicVineVolumeHandler _importComicVineVolumeHandler;
     private readonly MarkAllTomesAsOwnedHandler _markAllTomesAsOwnedHandler;
+    private readonly DeleteUserCollectionHandler _deleteUserCollectionHandler;
 
     public CollectionsController(
         ICurrentUserService currentUserService,
@@ -35,7 +37,8 @@ public sealed class CollectionsController : ControllerBase
         UnmarkTomeAsOwnedHandler unmarkTomeAsOwnedHandler,
         GetPendingTomesHandler getPendingTomesHandler,
         ImportComicVineVolumeHandler importComicVineVolumeHandler,
-        MarkAllTomesAsOwnedHandler markAllTomesAsOwnedHandler)
+        MarkAllTomesAsOwnedHandler markAllTomesAsOwnedHandler,
+        DeleteUserCollectionHandler deleteUserCollectionHandler)
     {
         _currentUserService = currentUserService;
         _getUserCollectionsHandler = getUserCollectionsHandler;
@@ -45,6 +48,7 @@ public sealed class CollectionsController : ControllerBase
         _getPendingTomesHandler = getPendingTomesHandler;
         _importComicVineVolumeHandler = importComicVineVolumeHandler;
         _markAllTomesAsOwnedHandler = markAllTomesAsOwnedHandler;
+        _deleteUserCollectionHandler = deleteUserCollectionHandler;
     }
 
     [HttpGet]
@@ -137,6 +141,20 @@ public sealed class CollectionsController : ControllerBase
     {
         var result = await _markAllTomesAsOwnedHandler.HandleAsync(
             new MarkAllTomesAsOwnedCommand(
+                UserId: _currentUserService.UserId,
+                CollectionId: collectionId),
+            cancellationToken);
+
+        return Ok(result);
+    }
+
+    [HttpDelete("{collectionId:guid}")]
+    public async Task<ActionResult<DeleteUserCollectionResult>> DeleteUserCollection(
+    Guid collectionId,
+    CancellationToken cancellationToken)
+    {
+        var result = await _deleteUserCollectionHandler.HandleAsync(
+            new DeleteUserCollectionCommand(
                 UserId: _currentUserService.UserId,
                 CollectionId: collectionId),
             cancellationToken);

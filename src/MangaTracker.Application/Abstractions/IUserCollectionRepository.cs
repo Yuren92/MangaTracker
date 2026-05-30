@@ -24,4 +24,6 @@ public interface IUserCollectionRepository
     Task<IReadOnlyCollection<UserCollection>> GetAllByUserIdAsync(
     Guid userId,
     CancellationToken cancellationToken = default);
+
+    void Remove(UserCollection userCollection);
 }
