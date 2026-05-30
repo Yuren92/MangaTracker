@@ -16,11 +16,13 @@
             class="user-menu-button"
             (click)="toggleUserMenu()"
           >
-            @if (authState.currentUser(); as user) {
-              {{ user.email }}
-            } @else {
-              Mi cuenta
-            }
+            <span class="user-menu-label">
+              @if (authState.currentUser(); as user) {
+                {{ user.email }}
+              } @else {
+                Mi cuenta
+              }
+            </span>
 
             <span aria-hidden="true">▾</span>
           </button>
