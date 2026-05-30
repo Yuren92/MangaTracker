@@ -75,12 +75,27 @@
               }
             </div>
 
-            <a
-              class="secondary-link"
-              [routerLink]="['/collections', tome.collectionId]"
-            >
-              Ver colección
-            </a>
+            <div class="tome-actions">
+              <button
+                type="button"
+                class="primary-button"
+                [disabled]="updatingTomeIds().has(tome.tomeId)"
+                (click)="markAsOwned(tome.collectionId, tome.tomeId)"
+              >
+                @if (updatingTomeIds().has(tome.tomeId)) {
+                  Marcando...
+                } @else {
+                  Marcar comprado
+                }
+              </button>
+
+              <a
+                class="secondary-link"
+                [routerLink]="['/collections', tome.collectionId]"
+              >
+                Ver colección
+              </a>
+            </div>
           </div>
         </article>
       }

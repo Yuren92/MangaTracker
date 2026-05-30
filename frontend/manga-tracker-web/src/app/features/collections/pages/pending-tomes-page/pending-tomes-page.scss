@@ -168,3 +168,34 @@ h1 {
   color: #6b7280;
   font-size: 0.88rem;
 }
+
+.tome-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.tome-actions .primary-button,
+.tome-actions .secondary-link {
+  flex: 1;
+}
+
+.primary-button {
+  border: 0;
+  border-radius: 12px;
+  padding: 11px 14px;
+  background: #4f46e5;
+  color: white;
+  font-weight: 900;
+  cursor: pointer;
+  text-align: center;
+
+  &:hover {
+    background: #4338ca;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}

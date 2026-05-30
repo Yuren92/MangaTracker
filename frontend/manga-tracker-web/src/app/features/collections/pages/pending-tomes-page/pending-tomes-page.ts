@@ -16,9 +16,32 @@ export class PendingTomesPage implements OnInit {
   readonly pendingTomes = signal<PendingTome[]>([]);
   readonly isLoading = signal(false);
   readonly errorMessage = signal<string | null>(null);
+  readonly updatingTomeIds = signal<Set<string>>(new Set<string>());
 
   ngOnInit(): void {
     this.loadPendingTomes();
+  }
+
+  markAsOwned(collectionId: string, tomeId: string): void {
+    this.setTomeUpdating(tomeId, true);
+    this.errorMessage.set(null);
+
+    this.collectionsApi.markTomeAsOwned(collectionId, tomeId).subscribe({
+      next: () => {
+        this.pendingTomes.update(tomes =>
+          tomes.filter(tome => tome.tomeId !== tomeId)
+        );
+
+        this.setTomeUpdating(tomeId, false);
+      },
+      error: error => {
+        this.errorMessage.set(
+          getApiErrorMessage(error, 'No se ha podido marcar el tomo como comprado.')
+        );
+
+        this.setTomeUpdating(tomeId, false);
+      }
+    });
   }
 
   private loadPendingTomes(): void {
@@ -38,6 +61,20 @@ export class PendingTomesPage implements OnInit {
         this.pendingTomes.set([]);
         this.isLoading.set(false);
       }
+    });
+  }
+
+  private setTomeUpdating(tomeId: string, isUpdating: boolean): void {
+    this.updatingTomeIds.update(current => {
+      const next = new Set(current);
+
+      if (isUpdating) {
+        next.add(tomeId);
+      } else {
+        next.delete(tomeId);
+      }
+
+      return next;
     });
   }
 }
