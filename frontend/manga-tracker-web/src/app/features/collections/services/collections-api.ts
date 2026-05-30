@@ -32,6 +32,13 @@ export class CollectionsApi {
     );
   }
 
+  syncCollections() {
+    return this.http.post(
+      `${this.apiUrl}/api/collections/sync`,
+      {}
+    );
+  }
+
   getCollectionDetail(collectionId: string) {
     return this.http.get<UserCollectionDetail>(
       `${this.apiUrl}/api/collections/${collectionId}`

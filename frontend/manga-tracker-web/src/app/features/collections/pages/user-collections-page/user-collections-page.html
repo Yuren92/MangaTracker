@@ -25,6 +25,12 @@
     </div>
   }
 
+  @if (syncMessage()) {
+    <div class="alert info">
+      {{ syncMessage() }}
+    </div>
+  }
+
   @if (!isLoading() && collections().length === 0 && !errorMessage()) {
     <div class="empty-state">
       <h2>Aún no tienes colecciones nuevas</h2>

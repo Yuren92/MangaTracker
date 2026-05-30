@@ -19,6 +19,9 @@ export class UserCollectionsPage implements OnInit {
   readonly errorMessage = signal<string | null>(null);
   readonly deletingCollectionIds = signal<Set<string>>(new Set<string>());
 
+  readonly isSyncing = signal(false);
+  readonly syncMessage = signal<string | null>(null);
+
   ngOnInit(): void {
     this.loadCollections();
   }
@@ -31,6 +34,10 @@ export class UserCollectionsPage implements OnInit {
       next: response => {
         this.collections.set(response.items);
         this.isLoading.set(false);
+
+         if (response.items.length > 0) {
+        this.syncCollections();
+  }
       },
       error: error => {
         this.errorMessage.set(
@@ -84,6 +91,38 @@ export class UserCollectionsPage implements OnInit {
       }
 
       return next;
+    });
+  }
+
+  private syncCollections(): void {
+    if (this.isSyncing()) {
+      return;
+    }
+
+    this.isSyncing.set(true);
+    this.syncMessage.set('Actualizando colecciones...');
+
+    this.collectionsApi.syncCollections().subscribe({
+      next: () => {
+        this.isSyncing.set(false);
+        this.syncMessage.set(null);
+        this.loadCollectionsAfterSync();
+      },
+      error: () => {
+        this.isSyncing.set(false);
+        this.syncMessage.set(null);
+      }
+    });
+  }
+
+  private loadCollectionsAfterSync(): void {
+    this.collectionsApi.getCollections().subscribe({
+      next: response => {
+        this.collections.set(response.items);
+      },
+      error: () => {
+        // Si la recarga tras sincronizar falla, mantenemos la lista anterior.
+      }
     });
   }
 }
