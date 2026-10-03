@@ -155,6 +155,16 @@ public sealed class SyncUserCollectionsHandler
             .ThenBy(issue => issue.IssueNumber, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
+        // Tomes for these issues may already exist (e.g. stored under another edition);
+        // fetch them all at once rather than with one query per issue.
+        var storedTomes = await _tomeRepository.GetByComicVineApiDetailUrlsAsync(
+            newIssueSummaries.Select(issue => issue.ApiDetailUrl).ToList(),
+            cancellationToken);
+
+        var storedTomesByUrl = storedTomes.ToDictionary(
+            tome => tome.ComicVineApiDetailUrl,
+            StringComparer.OrdinalIgnoreCase);
+
         var addedTomes = 0;
 
         foreach (var issueSummary in newIssueSummaries)
@@ -168,11 +178,7 @@ public sealed class SyncUserCollectionsHandler
                 continue;
             }
 
-            var existingTome = await _tomeRepository.GetByComicVineApiDetailUrlAsync(
-                issueDetail.ApiDetailUrl,
-                cancellationToken);
-
-            if (existingTome is not null)
+            if (storedTomesByUrl.TryGetValue(issueDetail.ApiDetailUrl, out var existingTome))
             {
                 existingTome.SyncDetails(
                     issueNumber: issueDetail.IssueNumber,
