@@ -5,11 +5,11 @@ namespace MangaTracker.Application.Collections.GetPendingTomes;
 
 public sealed class GetPendingTomesHandler
 {
-    private readonly IUserCollectionRepository _userCollectionRepository;
+    private readonly ICollectionQueries _collectionQueries;
 
-    public GetPendingTomesHandler(IUserCollectionRepository userCollectionRepository)
+    public GetPendingTomesHandler(ICollectionQueries collectionQueries)
     {
-        _userCollectionRepository = userCollectionRepository;
+        _collectionQueries = collectionQueries;
     }
 
     public async Task<GetPendingTomesResult> HandleAsync(
@@ -21,38 +21,9 @@ public sealed class GetPendingTomesHandler
             throw new ValidationException("User id is required.");
         }
 
-        var collections = await _userCollectionRepository.GetAllByUserIdAsync(
+        var items = await _collectionQueries.GetPendingTomesAsync(
             query.UserId,
             cancellationToken);
-
-        var items = collections
-            .SelectMany(collection =>
-            {
-                var ownedTomeIds = collection.OwnedTomes
-                    .Select(ownedTome => ownedTome.TomeId)
-                    .ToHashSet();
-
-                return collection.Edition.Tomes
-                    .Where(tome => !ownedTomeIds.Contains(tome.Id))
-                    .Select(tome => new PendingTomeResult(
-                        CollectionId: collection.Id,
-                        EditionId: collection.EditionId,
-                        TomeId: tome.Id,
-                        SeriesTitle: collection.Edition.Series.Title,
-                        EditionName: collection.Edition.Name,
-                        PublisherName: collection.Edition.PublisherName,
-                        IssueNumber: tome.IssueNumber,
-                        NormalizedNumber: tome.NormalizedNumber,
-                        TomeTitle: tome.Title,
-                        ImageUrl: tome.ImageUrl,
-                        CoverDate: tome.CoverDate,
-                        StoreDate: tome.StoreDate));
-            })
-            .OrderBy(item => item.SeriesTitle)
-            .ThenBy(item => item.PublisherName)
-            .ThenBy(item => item.NormalizedNumber ?? int.MaxValue)
-            .ThenBy(item => item.IssueNumber, StringComparer.OrdinalIgnoreCase)
-            .ToList();
 
         return new GetPendingTomesResult(items);
     }

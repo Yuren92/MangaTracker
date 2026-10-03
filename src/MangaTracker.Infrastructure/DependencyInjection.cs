@@ -4,6 +4,7 @@ using MangaTracker.Application.Abstractions.Auth;
 using MangaTracker.Infrastructure.Auth;
 using MangaTracker.Infrastructure.ExternalServices.ComicVine;
 using MangaTracker.Infrastructure.Persistence;
+using MangaTracker.Infrastructure.Queries;
 using MangaTracker.Infrastructure.Repositories;
 using MangaTracker.Application.Abstractions.Email;
 using MangaTracker.Infrastructure.Email;
@@ -47,6 +48,7 @@ public static class DependencyInjection
         services.AddScoped<IEditionRepository, EditionRepository>();
         services.AddScoped<ITomeRepository, TomeRepository>();
         services.AddScoped<IUserCollectionRepository, UserCollectionRepository>();
+        services.AddScoped<ICollectionQueries, CollectionQueries>();
 
         services
             .AddOptions<AuthLinkOptions>()
