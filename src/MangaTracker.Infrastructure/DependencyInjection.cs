@@ -64,6 +64,7 @@ public static class DependencyInjection
         services.Configure<AuthCleanupOptions>(
             configuration.GetSection("AuthCleanup"));
 
+        services.AddScoped<AuthCleanupJob>();
         services.AddHostedService<AuthCleanupBackgroundService>();
 
         services.AddScoped<ITokenGenerator, TokenGenerator>();

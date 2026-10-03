@@ -46,25 +46,11 @@ public sealed class AuthCleanupBackgroundService : BackgroundService
 
     private async Task RunCleanupAsync(CancellationToken cancellationToken)
     {
+        // A fresh scope per run: the job uses scoped services (DbContext, repositories).
         using var scope = _serviceScopeFactory.CreateScope();
 
-        var userRepository = scope.ServiceProvider.GetRequiredService<IUserRepository>();
-        var userTokenRepository = scope.ServiceProvider.GetRequiredService<IUserTokenRepository>();
-        var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-
-        var unconfirmedUsersCutoff = DateTimeOffset.UtcNow
-            .AddHours(-_options.DeleteUnconfirmedUsersAfterHours);
-
-        await userTokenRepository.DeleteExpiredOrUsedTokensAsync(cancellationToken);
-
-        await userRepository.DeleteUnconfirmedUsersOlderThanAsync(
-            unconfirmedUsersCutoff,
-            cancellationToken);
-
-        await unitOfWork.SaveChangesAsync(cancellationToken);
-
-        _logger.LogInformation(
-            "Auth cleanup completed. Deleted expired/used tokens and unconfirmed users older than {Cutoff}.",
-            unconfirmedUsersCutoff);
+        await scope.ServiceProvider
+            .GetRequiredService<AuthCleanupJob>()
+            .RunAsync(cancellationToken);
     }
 }
