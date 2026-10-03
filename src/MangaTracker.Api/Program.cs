@@ -104,9 +104,12 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 
 builder.Services.AddRateLimiter(options =>
 {
-    AddFixedWindowPolicy(options, RateLimitPolicies.AuthSensitive, permitLimit: 5);
-    AddFixedWindowPolicy(options, RateLimitPolicies.ExternalApi, permitLimit: 30);
-    AddFixedWindowPolicy(options, RateLimitPolicies.ComicVineImport, permitLimit: 5);
+    // Requests per minute; overridable per policy, e.g. RateLimiting:auth-sensitive=5.
+    var limits = builder.Configuration.GetSection("RateLimiting");
+
+    AddFixedWindowPolicy(options, RateLimitPolicies.AuthSensitive, limits.GetValue(RateLimitPolicies.AuthSensitive, 5));
+    AddFixedWindowPolicy(options, RateLimitPolicies.ExternalApi, limits.GetValue(RateLimitPolicies.ExternalApi, 30));
+    AddFixedWindowPolicy(options, RateLimitPolicies.ComicVineImport, limits.GetValue(RateLimitPolicies.ComicVineImport, 5));
 
     options.OnRejected = async (context, cancellationToken) =>
     {
