@@ -7,6 +7,10 @@ namespace MangaTracker.Application.Auth.LoginUser;
 
 public sealed class LoginUserHandler
 {
+    // Hash of a random value, computed once. Unknown emails are verified against it so
+    // they take as long as a wrong password and response times reveal nothing.
+    private static string? _unknownUserPasswordHash;
+
     private readonly IUserRepository _userRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtTokenGenerator _jwtTokenGenerator;
@@ -36,16 +40,11 @@ public sealed class LoginUserHandler
             normalizedEmail,
             cancellationToken);
 
-        if (user is null)
-        {
-            throw new ValidationException("Invalid email or password.");
-        }
-
         var isPasswordValid = _passwordHasher.VerifyPassword(
             command.Password,
-            user.PasswordHash);
+            user?.PasswordHash ?? GetUnknownUserPasswordHash());
 
-        if (!isPasswordValid)
+        if (user is null || !isPasswordValid)
         {
             throw new ValidationException("Invalid email or password.");
         }
@@ -58,5 +57,10 @@ public sealed class LoginUserHandler
         var accessToken = _jwtTokenGenerator.GenerateToken(user);
 
         return new LoginUserResult(accessToken);
+    }
+
+    private string GetUnknownUserPasswordHash()
+    {
+        return _unknownUserPasswordHash ??= _passwordHasher.HashPassword(Guid.NewGuid().ToString("N"));
     }
 }

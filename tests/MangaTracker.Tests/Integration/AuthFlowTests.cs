@@ -62,14 +62,22 @@ public sealed class AuthFlowTests
     }
 
     [Fact]
-    public async Task Registering_an_existing_email_should_return_conflict()
+    public async Task Registering_an_existing_email_should_look_identical_and_notify_the_owner()
     {
         var email = TestUsers.NewEmail();
+        var newEmail = TestUsers.NewEmail();
         await TestUsers.RegisterAsync(_client, email);
 
-        var response = await _client.PostAsJsonAsync("/api/auth/register", new { email, password = TestUsers.Password });
+        var existing = await _client.PostAsJsonAsync("/api/auth/register", new { email, password = TestUsers.Password });
+        var brandNew = await _client.PostAsJsonAsync("/api/auth/register", new { email = newEmail, password = TestUsers.Password });
 
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        existing.StatusCode.Should().Be(HttpStatusCode.Accepted);
+        brandNew.StatusCode.Should().Be(HttpStatusCode.Accepted);
+        (await existing.Content.ReadAsStringAsync()).Should().Be(await brandNew.Content.ReadAsStringAsync());
+
+        _factory.Emails.CountFor(email, EmailKind.Confirmation).Should().Be(1, "only the first registration creates the account");
+        _factory.Emails.CountFor(email, EmailKind.ExistingAccountNotice).Should().Be(1);
+        _factory.Emails.CountFor(newEmail, EmailKind.Confirmation).Should().Be(1);
     }
 
     [Fact]

@@ -264,6 +264,8 @@ El flujo de usuario incluye:
 
 Revocación de sesiones: cada usuario tiene un `SecurityStamp` aleatorio que viaja como claim en el JWT. En cada petición autenticada se compara con el valor actual en base de datos (`SecurityStampValidator`). Cambiar o restablecer la contraseña rota el stamp, así que todos los tokens emitidos antes dejan de ser válidos al instante, sin esperar a que caduquen. El cambio de contraseña devuelve un token nuevo para mantener la sesión actual.
 
+Enumeración de cuentas: ningún endpoint revela si un email está registrado. El registro responde siempre 202 con el mismo mensaje; si la cuenta ya existía, en lugar de crearla se envía al titular un aviso con enlace para restablecer la contraseña. La recuperación de contraseña y el login dan la misma respuesta para emails desconocidos, y el hash de la contraseña se calcula en todos los casos para que el tiempo de respuesta tampoco los delate.
+
 Los correos se envían usando una abstracción:
 
 ```csharp

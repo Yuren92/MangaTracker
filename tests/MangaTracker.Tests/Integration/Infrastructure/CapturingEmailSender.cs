@@ -29,6 +29,12 @@ public sealed class CapturingEmailSender : IEmailSender
         return Task.CompletedTask;
     }
 
+    public Task SendRegistrationAttemptForExistingAccountAsync(string to, string forgotPasswordUrl, CancellationToken cancellationToken = default)
+    {
+        _sent.Enqueue(new SentEmail(EmailKind.ExistingAccountNotice, to, forgotPasswordUrl));
+        return Task.CompletedTask;
+    }
+
     public string LatestTokenFor(string email, EmailKind kind)
     {
         var url = _sent.Last(sent =>
@@ -56,7 +62,8 @@ public enum EmailKind
 {
     Confirmation,
     PasswordReset,
-    Welcome
+    Welcome,
+    ExistingAccountNotice
 }
 
 public sealed record SentEmail(EmailKind Kind, string To, string? Url);

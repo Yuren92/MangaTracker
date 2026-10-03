@@ -64,10 +64,8 @@ public sealed class AuthController : ControllerBase
             command,
             cancellationToken);
 
-        return CreatedAtAction(
-            nameof(Register),
-            new { id = result.UserId },
-            result);
+        // 202 for new and existing emails alike, so the status code reveals nothing either.
+        return Accepted(result);
     }
 
     [EnableRateLimiting(RateLimitPolicies.AuthSensitive)]
