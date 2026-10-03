@@ -52,7 +52,8 @@ public sealed class AccountEnumerationTests
             Substitute.For<ITokenHasher>(),
             Substitute.For<IAuthLinkBuilder>(),
             emailSender,
-            Substitute.For<IUnitOfWork>());
+            Substitute.For<IUnitOfWork>(),
+            TimeProvider.System);
 
         var result = await handler.HandleAsync(new RegisterUserCommand(Email, Password));
 

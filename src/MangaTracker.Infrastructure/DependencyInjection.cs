@@ -11,6 +11,7 @@ using MangaTracker.Infrastructure.BackgroundJobs;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 
 namespace MangaTracker.Infrastructure;
@@ -36,6 +37,7 @@ public static class DependencyInjection
         services.AddDbContext<MangaTrackerDbContext>(options =>
             options.UseSqlServer(connectionString));
 
+        services.TryAddSingleton(TimeProvider.System);
         services.AddScoped<IUnitOfWork, EfUnitOfWork>();
 
         services.AddScoped<IUserRepository, UserRepository>();

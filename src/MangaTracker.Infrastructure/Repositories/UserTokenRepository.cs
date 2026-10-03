@@ -9,10 +9,14 @@ namespace MangaTracker.Infrastructure.Repositories;
 public sealed class UserTokenRepository : IUserTokenRepository
 {
     private readonly MangaTrackerDbContext _dbContext;
+    private readonly TimeProvider _timeProvider;
 
-    public UserTokenRepository(MangaTrackerDbContext dbContext)
+    public UserTokenRepository(
+        MangaTrackerDbContext dbContext,
+        TimeProvider timeProvider)
     {
         _dbContext = dbContext;
+        _timeProvider = timeProvider;
     }
 
     public Task<UserToken?> GetActiveTokenAsync(
@@ -20,7 +24,7 @@ public sealed class UserTokenRepository : IUserTokenRepository
         UserTokenType type,
         CancellationToken cancellationToken = default)
     {
-        var now = DateTimeOffset.UtcNow;
+        var now = _timeProvider.GetUtcNow();
 
         return _dbContext.UserTokens
             .FirstOrDefaultAsync(
@@ -42,7 +46,7 @@ public sealed class UserTokenRepository : IUserTokenRepository
     public async Task DeleteExpiredOrUsedTokensAsync(
         CancellationToken cancellationToken = default)
     {
-        var now = DateTimeOffset.UtcNow;
+        var now = _timeProvider.GetUtcNow();
 
         var tokensToDelete = await _dbContext.UserTokens
             .Where(token => token.UsedAt != null || token.ExpiresAt <= now)
@@ -56,7 +60,7 @@ public sealed class UserTokenRepository : IUserTokenRepository
         UserTokenType type,
         CancellationToken cancellationToken = default)
     {
-        var now = DateTimeOffset.UtcNow;
+        var now = _timeProvider.GetUtcNow();
 
         var activeTokens = await _dbContext.UserTokens
             .Where(token =>

@@ -43,6 +43,8 @@ public sealed class MangaTrackerApiFactory : WebApplicationFactory<Program>, IAs
 
     public FakeComicVineClient ComicVine { get; } = new();
 
+    public AdjustableClock Clock { get; } = new();
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
@@ -61,6 +63,9 @@ public sealed class MangaTrackerApiFactory : WebApplicationFactory<Program>, IAs
         {
             services.RemoveAll<IEmailSender>();
             services.AddSingleton<IEmailSender>(Emails);
+
+            services.RemoveAll<TimeProvider>();
+            services.AddSingleton<TimeProvider>(Clock);
 
             services.RemoveAll<IComicVineClient>();
             services.AddSingleton<IComicVineClient>(ComicVine);

@@ -20,6 +20,7 @@ public sealed class RegisterUserHandler
     private readonly IAuthLinkBuilder _authLinkBuilder;
     private readonly IEmailSender _emailSender;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly TimeProvider _timeProvider;
 
     public RegisterUserHandler(
         IUserRepository userRepository,
@@ -29,7 +30,8 @@ public sealed class RegisterUserHandler
         ITokenHasher tokenHasher,
         IAuthLinkBuilder authLinkBuilder,
         IEmailSender emailSender,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        TimeProvider timeProvider)
     {
         _userRepository = userRepository;
         _userTokenRepository = userTokenRepository;
@@ -39,6 +41,7 @@ public sealed class RegisterUserHandler
         _authLinkBuilder = authLinkBuilder;
         _emailSender = emailSender;
         _unitOfWork = unitOfWork;
+        _timeProvider = timeProvider;
     }
 
     public async Task<RegisterUserResult> HandleAsync(
@@ -75,7 +78,7 @@ public sealed class RegisterUserHandler
             userId: user.Id,
             tokenHash: confirmationTokenHash,
             type: UserTokenType.EmailConfirmation,
-            expiresAt: DateTimeOffset.UtcNow.Add(EmailConfirmationTokenLifetime));
+            expiresAt: _timeProvider.GetUtcNow().Add(EmailConfirmationTokenLifetime));
 
         await _userTokenRepository.AddAsync(userToken, cancellationToken);
 
