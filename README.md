@@ -34,7 +34,7 @@ La aplicación permite buscar series y ediciones usando Comic Vine, importar una
 * Rate limiting en endpoints sensibles y en endpoints que consumen APIs externas.
 * Health check público.
 * Frontend responsive.
-* Tests unitarios para casos de uso principales.
+* Tests unitarios y de integración (API real + SQL Server) para autenticación, autorización, importación y sincronización.
 
 ## Stack tecnológico
 
@@ -462,6 +462,13 @@ Para ejecutar los tests:
 ```powershell
 dotnet test
 ```
+
+Hay dos tipos:
+
+* **Unitarios**: handlers de Application con dependencias sustituidas (NSubstitute), validación de configuración, `ComicVineClient` con un `HttpMessageHandler` falso y partición del rate limiting. El tiempo se inyecta con `TimeProvider` para poder probar cooldowns y ordenación.
+* **Integración** (`tests/MangaTracker.Tests/Integration`): levantan la API real en memoria con `WebApplicationFactory` contra un SQL Server de verdad. Cada ejecución crea una base de datos nueva aplicando las migraciones y la borra al terminar. Solo se sustituyen los servicios externos (correo y Comic Vine). Cubren el flujo de autenticación (registro, confirmación, login, recuperación y cambio de contraseña, tokens de un solo uso, no enumeración de usuarios) y la autorización entre usuarios (un usuario no puede leer ni modificar colecciones de otro aunque conozca su id).
+
+Los tests de integración usan LocalDB por defecto. Para usar otro servidor, define `MANGATRACKER_TEST_SQLSERVER` con una connection string sin base de datos. No se usa SQLite porque EF Core no traduce a SQLite las comparaciones de `DateTimeOffset` de las consultas de tokens.
 
 ## Despliegue
 
