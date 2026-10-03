@@ -8,7 +8,8 @@ public sealed class UnmarkTomeAsOwnedHandler
     private readonly IUserCollectionRepository _userCollectionRepository;
     private readonly IUnitOfWork _unitOfWork;
 
-    public UnmarkTomeAsOwnedHandler(IUserCollectionRepository userCollectionRepository,
+    public UnmarkTomeAsOwnedHandler(
+        IUserCollectionRepository userCollectionRepository,
         IUnitOfWork unitOfWork)
     {
         _userCollectionRepository = userCollectionRepository;

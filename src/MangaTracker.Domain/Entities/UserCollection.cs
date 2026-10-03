@@ -38,12 +38,18 @@ public sealed class UserCollection
         CreatedAt = DateTimeOffset.UtcNow;
     }
 
-    public void MarkTomeAsOwned(Guid tomeId)
+    // Takes the tome itself so the aggregate can enforce that only tomes of this
+    // collection's edition can be owned, whoever the caller is.
+    public void MarkTomeAsOwned(Tome tome)
     {
-        if (tomeId == Guid.Empty)
+        ArgumentNullException.ThrowIfNull(tome);
+
+        if (tome.EditionId != EditionId)
         {
-            throw new DomainException("Tome id is required.");
+            throw new DomainException("Tome does not belong to this collection.");
         }
+
+        var tomeId = tome.Id;
 
         var alreadyOwned = _ownedTomes.Any(ownedTome =>
             ownedTome.TomeId == tomeId);

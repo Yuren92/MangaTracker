@@ -8,7 +8,8 @@ public sealed class MarkAllTomesAsOwnedHandler
     private readonly IUserCollectionRepository _userCollectionRepository;
     private readonly IUnitOfWork _unitOfWork;
 
-    public MarkAllTomesAsOwnedHandler(IUserCollectionRepository userCollectionRepository,
+    public MarkAllTomesAsOwnedHandler(
+        IUserCollectionRepository userCollectionRepository,
         IUnitOfWork unitOfWork)
     {
         _userCollectionRepository = userCollectionRepository;
@@ -41,7 +42,7 @@ public sealed class MarkAllTomesAsOwnedHandler
 
         foreach (var tome in collection.Edition.Tomes)
         {
-            collection.MarkTomeAsOwned(tome.Id);
+            collection.MarkTomeAsOwned(tome);
         }
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
