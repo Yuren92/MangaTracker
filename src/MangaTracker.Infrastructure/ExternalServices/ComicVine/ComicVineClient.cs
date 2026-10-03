@@ -211,6 +211,10 @@ public sealed class ComicVineClient : IComicVineClient
     // resilience pipeline configured for this HttpClient; whatever still fails afterwards
     // (timeouts, 5xx, 429, open circuit, invalid responses) becomes
     // ExternalServiceUnavailableException so callers and the API can treat it as a 503.
+    // https://comicvine.gamespot.com/api/documentation: status_code 1 = OK, 101 = Object Not Found.
+    private const int StatusOk = 1;
+    private const int StatusObjectNotFound = 101;
+
     private async Task<T?> GetComicVineResponseAsync<T>(
         string url,
         CancellationToken cancellationToken)
@@ -232,7 +236,34 @@ public sealed class ComicVineClient : IComicVineClient
 
             response.EnsureSuccessStatusCode();
 
-            return await response.Content.ReadFromJsonAsync<T>(cancellationToken: cancellationToken)
+            // Comic Vine answers HTTP 200 even for errors and reports the outcome in
+            // status_code. "Object Not Found" comes with results as an empty array, which
+            // must mean "does not exist", not "provider down".
+            using var document = await JsonDocument.ParseAsync(
+                await response.Content.ReadAsStreamAsync(cancellationToken),
+                cancellationToken: cancellationToken);
+
+            if (document.RootElement.TryGetProperty("status_code", out var statusCode)
+                && statusCode.ValueKind == JsonValueKind.Number)
+            {
+                switch (statusCode.GetInt32())
+                {
+                    case StatusOk:
+                        break;
+                    case StatusObjectNotFound:
+                        return null;
+                    default:
+                        // Invalid API key, malformed URL, rate limit...: nothing the caller can fix.
+                        var error = document.RootElement.TryGetProperty("error", out var errorText)
+                            ? errorText.GetString()
+                            : null;
+
+                        throw new JsonException(
+                            $"Comic Vine returned status_code {statusCode.GetInt32()}: {error}");
+                }
+            }
+
+            return document.RootElement.Deserialize<T>()
                 ?? throw new JsonException("Comic Vine returned an empty response.");
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
