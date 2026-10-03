@@ -81,10 +81,23 @@ public sealed class SyncUserCollectionsHandler
                 newTomes += addedTomes.Value;
                 syncedCollections++;
             }
+            catch (ExternalServiceUnavailableException exception)
+            {
+                // Comic Vine itself is down (after retries) rather than this volume being
+                // broken. The rest would fail the same way, so stop here, keep what was
+                // synced so far, and leave this edition due so it is retried next time.
+                _logger.LogWarning(
+                    exception,
+                    "Comic Vine unavailable, stopping sync after {SyncedCollections} collections",
+                    syncedCollections);
+
+                failedCollections++;
+                break;
+            }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
-                // One volume failing (removed from Comic Vine, provider error...) must not
-                // abort the whole sync or block the remaining collections forever.
+                // Anything specific to this edition must not abort the whole sync or keep
+                // it first in the queue forever.
                 _logger.LogWarning(
                     exception,
                     "Comic Vine sync failed for edition {EditionId}",

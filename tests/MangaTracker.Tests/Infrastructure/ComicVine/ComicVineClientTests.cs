@@ -49,6 +49,55 @@ public sealed class ComicVineClientTests
         request.Fragment.Should().BeEmpty();
     }
 
+    [Fact]
+    public async Task GetVolumeByApiDetailUrlAsync_should_return_null_when_comic_vine_answers_404()
+    {
+        var client = CreateClient(new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.NotFound)));
+
+        var volume = await client.GetVolumeByApiDetailUrlAsync(ValidUrl);
+
+        volume.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.InternalServerError)]
+    [InlineData(HttpStatusCode.TooManyRequests)]
+    [InlineData(HttpStatusCode.Unauthorized)]
+    public async Task GetVolumeByApiDetailUrlAsync_should_report_provider_failures_as_unavailable(HttpStatusCode status)
+    {
+        var client = CreateClient(new RecordingHandler(_ => new HttpResponseMessage(status)));
+
+        var act = () => client.GetVolumeByApiDetailUrlAsync(ValidUrl);
+
+        await act.Should().ThrowAsync<ExternalServiceUnavailableException>();
+    }
+
+    [Fact]
+    public async Task GetVolumeByApiDetailUrlAsync_should_report_a_timeout_as_unavailable()
+    {
+        // HttpClient signals its own timeout with TaskCanceledException, which must not be
+        // confused with the caller cancelling the request.
+        var client = CreateClient(new RecordingHandler(_ => throw new TaskCanceledException("timeout")));
+
+        var act = () => client.GetVolumeByApiDetailUrlAsync(ValidUrl);
+
+        await act.Should().ThrowAsync<ExternalServiceUnavailableException>();
+    }
+
+    [Fact]
+    public async Task GetVolumeByApiDetailUrlAsync_should_propagate_cancellation_by_the_caller()
+    {
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        var client = CreateClient(new RecordingHandler());
+
+        var act = () => client.GetVolumeByApiDetailUrlAsync(ValidUrl, cancellation.Token);
+
+        await act.Should().ThrowAsync<OperationCanceledException>();
+    }
+
+    private const string ValidUrl = "https://comicvine.gamespot.com/api/volume/4050-1/";
+
     private static ComicVineClient CreateClient(RecordingHandler handler)
     {
         var httpClient = new HttpClient(handler)
@@ -63,21 +112,29 @@ public sealed class ComicVineClientTests
 
     private sealed class RecordingHandler : HttpMessageHandler
     {
-        public List<Uri> Requests { get; } = [];
+        private readonly Func<HttpRequestMessage, HttpResponseMessage> _respond;
 
-        protected override Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request,
-            CancellationToken cancellationToken)
+        public RecordingHandler(Func<HttpRequestMessage, HttpResponseMessage>? respond = null)
         {
-            Requests.Add(request.RequestUri!);
-
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            _respond = respond ?? (_ => new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent(
                     """{ "results": { "id": 1, "name": "One Piece", "issues": [] } }""",
                     Encoding.UTF8,
                     "application/json")
             });
+        }
+
+        public List<Uri> Requests { get; } = [];
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Requests.Add(request.RequestUri!);
+
+            return Task.FromResult(_respond(request));
         }
     }
 }

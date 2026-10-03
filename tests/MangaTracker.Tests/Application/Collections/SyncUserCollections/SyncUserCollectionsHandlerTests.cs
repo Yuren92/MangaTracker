@@ -2,6 +2,7 @@ using FluentAssertions;
 using MangaTracker.Application.Abstractions;
 using MangaTracker.Application.Collections.SyncUserCollections;
 using MangaTracker.Application.ComicVine.Dtos;
+using MangaTracker.Application.Common.Exceptions;
 using MangaTracker.Domain.Entities;
 using MangaTracker.Tests.Fakes;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -161,6 +162,32 @@ public sealed class SyncUserCollectionsHandlerTests
         var act = () => CreateHandler().HandleAsync(Command());
 
         await act.Should().ThrowAsync<OperationCanceledException>();
+    }
+
+    [Fact]
+    public async Task HandleAsync_ShouldStopWithoutPenalisingCollections_WhenComicVineIsDown()
+    {
+        var synced = NewEdition(lastSyncedHoursAgo: 100);
+        var hitsOutage = NewEdition(lastSyncedHoursAgo: 90);
+        var notReached = NewEdition(lastSyncedHoursAgo: 80);
+        GivenUserCollections(synced, hitsOutage, notReached);
+        GivenComicVineVolumesFor(synced, notReached);
+
+        _comicVineClient
+            .GetVolumeByApiDetailUrlAsync(hitsOutage.ComicVineApiDetailUrl, Arg.Any<CancellationToken>())
+            .ThrowsAsync(new ExternalServiceUnavailableException("down", new HttpRequestException()));
+
+        var result = await CreateHandler().HandleAsync(Command());
+
+        result.SyncedCollections.Should().Be(1);
+        result.FailedCollections.Should().Be(1);
+        synced.LastSyncedAt.Should().Be(Now);
+
+        // Neither the edition that hit the outage nor the next one lose their turn.
+        hitsOutage.LastSyncedAt.Should().Be(Now.AddHours(-90));
+        notReached.LastSyncedAt.Should().Be(Now.AddHours(-80));
+        await _comicVineClient.DidNotReceive().GetVolumeByApiDetailUrlAsync(notReached.ComicVineApiDetailUrl, Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     private SyncUserCollectionsHandler CreateHandler()

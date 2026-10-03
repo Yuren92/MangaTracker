@@ -47,6 +47,18 @@ public sealed class ExceptionHandlingMiddleware
                 StatusCodes.Status409Conflict,
                 "Conflict");
         }
+        catch (ExternalServiceUnavailableException exception)
+        {
+            // The cause stays in the logs; the client only learns it can retry later.
+            _logger.LogWarning(exception.InnerException, "External service unavailable: {Message}", exception.Message);
+            context.Response.Headers.RetryAfter = "30";
+
+            await HandleExceptionAsync(
+                context,
+                exception,
+                StatusCodes.Status503ServiceUnavailable,
+                "Service unavailable");
+        }
         catch (DomainException exception)
         {
             await HandleExceptionAsync(

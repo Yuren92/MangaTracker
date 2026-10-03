@@ -106,8 +106,21 @@ public static class DependencyInjection
                 .Value;
 
             client.BaseAddress = new Uri(options.BaseUrl);
-            client.Timeout = TimeSpan.FromSeconds(30);
             client.DefaultRequestHeaders.UserAgent.ParseAdd("MangaTracker/1.0");
+        })
+        // Timeouts, retries and circuit breaking live in the resilience pipeline instead of
+        // HttpClient.Timeout. Only GET requests are sent, so retrying them is safe.
+        .AddStandardResilienceHandler(resilience =>
+        {
+            // Retries honour Retry-After on 429 and use exponential backoff with jitter.
+            resilience.Retry.MaxRetryAttempts = 2;
+            resilience.AttemptTimeout.Timeout = TimeSpan.FromSeconds(10);
+            resilience.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(30);
+
+            // After repeated failures, fail fast for a while instead of piling up requests
+            // on a provider that is down.
+            resilience.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(30);
+            resilience.CircuitBreaker.BreakDuration = TimeSpan.FromSeconds(30);
         });
 
         return services;

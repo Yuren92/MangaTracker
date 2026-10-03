@@ -1,5 +1,6 @@
 using MangaTracker.Application.Abstractions;
 using MangaTracker.Application.ComicVine.Dtos;
+using MangaTracker.Application.Common.Exceptions;
 using MangaTracker.Tests.Fakes;
 
 namespace MangaTracker.Tests.Integration.Infrastructure;
@@ -10,6 +11,7 @@ public sealed class FakeComicVineClient : IComicVineClient
 {
     public const string OnePieceUrl = "https://comicvine.gamespot.com/api/volume/4050-1/";
     public const string BerserkUrl = "https://comicvine.gamespot.com/api/volume/4050-2/";
+    public const string UnavailableVolumeUrl = "https://comicvine.gamespot.com/api/volume/4050-503/";
     public const string SlowVolumeUrl = "https://comicvine.gamespot.com/api/volume/4050-3/";
 
     private readonly Dictionary<string, ComicVineVolumeDetailDto> _volumes = new(StringComparer.OrdinalIgnoreCase)
@@ -34,6 +36,11 @@ public sealed class FakeComicVineClient : IComicVineClient
     public async Task<ComicVineVolumeDetailDto?> GetVolumeByApiDetailUrlAsync(
         string apiDetailUrl, CancellationToken cancellationToken = default)
     {
+        if (string.Equals(apiDetailUrl, UnavailableVolumeUrl, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ExternalServiceUnavailableException("Comic Vine is not available right now. Please try again later.", new HttpRequestException("503"));
+        }
+
         if (string.Equals(apiDetailUrl, SlowVolumeUrl, StringComparison.OrdinalIgnoreCase))
         {
             await Task.Delay(TimeSpan.FromMilliseconds(200), cancellationToken);

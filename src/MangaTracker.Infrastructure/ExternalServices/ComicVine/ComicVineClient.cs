@@ -1,10 +1,14 @@
 using System.Globalization;
+using System.Net;
+using System.Text.Json;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using MangaTracker.Application.Abstractions;
 using MangaTracker.Application.ComicVine.Dtos;
 using MangaTracker.Application.Common.Exceptions;
 using Microsoft.Extensions.Options;
+using Polly.CircuitBreaker;
+using Polly.Timeout;
 
 namespace MangaTracker.Infrastructure.ExternalServices.ComicVine;
 
@@ -45,6 +49,11 @@ public sealed class ComicVineClient : IComicVineClient
         var response = await GetComicVineResponseAsync<ComicVineListResponse<ComicVineVolumeResource>>(
             url,
             cancellationToken);
+
+        if (response is null)
+        {
+            return [];
+        }
 
         return response.Results
             .Select(volume => new ComicVineVolumeSearchResultDto(
@@ -87,7 +96,7 @@ public sealed class ComicVineClient : IComicVineClient
             url,
             cancellationToken);
 
-        var volume = response.Results;
+        var volume = response?.Results;
 
         if (volume is null || volume.Id == 0)
         {
@@ -130,7 +139,7 @@ public sealed class ComicVineClient : IComicVineClient
             url,
             cancellationToken);
 
-        var issue = response.Results;
+        var issue = response?.Results;
 
         if (issue is null || issue.Id == 0)
         {
@@ -198,27 +207,49 @@ public sealed class ComicVineClient : IComicVineClient
         return $"{baseUrl}{uri.Query}{separator}api_key={Uri.EscapeDataString(_options.ApiKey)}&format=json";
     }
 
-    private async Task<T> GetComicVineResponseAsync<T>(
+    // Returns null when Comic Vine answers 404. Transient failures are retried by the
+    // resilience pipeline configured for this HttpClient; whatever still fails afterwards
+    // (timeouts, 5xx, 429, open circuit, invalid responses) becomes
+    // ExternalServiceUnavailableException so callers and the API can treat it as a 503.
+    private async Task<T?> GetComicVineResponseAsync<T>(
         string url,
         CancellationToken cancellationToken)
+        where T : class
     {
         if (string.IsNullOrWhiteSpace(_options.ApiKey))
         {
             throw new InvalidOperationException("Comic Vine API key is not configured.");
         }
 
-        var response = await _httpClient.GetAsync(url, cancellationToken);
-        response.EnsureSuccessStatusCode();
-
-        var comicVineResponse = await response.Content.ReadFromJsonAsync<T>(
-            cancellationToken: cancellationToken);
-
-        if (comicVineResponse is null)
+        try
         {
-            throw new InvalidOperationException("Comic Vine returned an empty response.");
-        }
+            using var response = await _httpClient.GetAsync(url, cancellationToken);
 
-        return comicVineResponse;
+            if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                return null;
+            }
+
+            response.EnsureSuccessStatusCode();
+
+            return await response.Content.ReadFromJsonAsync<T>(cancellationToken: cancellationToken)
+                ?? throw new JsonException("Comic Vine returned an empty response.");
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // The caller cancelled (request aborted): not a provider failure.
+            throw;
+        }
+        catch (Exception exception) when (exception is HttpRequestException
+                                              or OperationCanceledException
+                                              or TimeoutRejectedException
+                                              or BrokenCircuitException
+                                              or JsonException)
+        {
+            throw new ExternalServiceUnavailableException(
+                "Comic Vine is not available right now. Please try again later.",
+                exception);
+        }
     }
 
     private static string? GetBestImageUrl(ComicVineImageResource? image)
