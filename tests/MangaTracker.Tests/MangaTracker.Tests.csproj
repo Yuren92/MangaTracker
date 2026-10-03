@@ -23,6 +23,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\MangaTracker.Domain\MangaTracker.Domain.csproj" />
     <ProjectReference Include="..\..\src\MangaTracker.Application\MangaTracker.Application.csproj" />
+    <ProjectReference Include="..\..\src\MangaTracker.Infrastructure\MangaTracker.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>

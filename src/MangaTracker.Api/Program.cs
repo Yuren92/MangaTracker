@@ -3,6 +3,8 @@ using MangaTracker.Api.Middleware;
 using MangaTracker.Application;
 using MangaTracker.Application.Abstractions.Auth;
 using MangaTracker.Infrastructure;
+using MangaTracker.Infrastructure.Auth;
+using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
@@ -18,31 +20,35 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
-builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddInfrastructure(builder.Configuration, builder.Environment);
 builder.Services.AddApplication();
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
-var jwtIssuer = builder.Configuration["Jwt:Issuer"];
-var jwtAudience = builder.Configuration["Jwt:Audience"];
-var jwtSecretKey = builder.Configuration["Jwt:SecretKey"];
-
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+    .AddJwtBearer();
+
+// Token validation reads the same validated JwtOptions used to issue tokens,
+// so issuing and validating can never drift apart.
+builder.Services
+    .AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+    .Configure<IOptions<JwtOptions>>((options, jwtOptions) =>
     {
+        var jwt = jwtOptions.Value;
+
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
-            ValidIssuer = jwtIssuer,
+            ValidIssuer = jwt.Issuer,
 
             ValidateAudience = true,
-            ValidAudience = jwtAudience,
+            ValidAudience = jwt.Audience,
 
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(jwtSecretKey!)),
+                Encoding.UTF8.GetBytes(jwt.SecretKey)),
 
             ValidateLifetime = true,
             ClockSkew = TimeSpan.FromMinutes(1)

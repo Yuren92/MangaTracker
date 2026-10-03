@@ -1,3 +1,4 @@
+using System.Text;
 using MangaTracker.Application.Abstractions;
 using MangaTracker.Application.Abstractions.Auth;
 using MangaTracker.Infrastructure.Auth;
@@ -10,16 +11,27 @@ using MangaTracker.Infrastructure.BackgroundJobs;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace MangaTracker.Infrastructure;
 
 public static class DependencyInjection
 {
+    // HS256 needs a key of at least 256 bits.
+    private const int MinJwtSecretKeyBytes = 32;
+
     public static IServiceCollection AddInfrastructure(
         this IServiceCollection services,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IHostEnvironment environment)
     {
         var connectionString = configuration.GetConnectionString("MangaTrackerDb");
+
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new InvalidOperationException(
+                "Connection string 'MangaTrackerDb' is not configured.");
+        }
 
         services.AddDbContext<MangaTrackerDbContext>(options =>
             options.UseSqlServer(connectionString));
@@ -32,14 +44,19 @@ public static class DependencyInjection
         services.AddScoped<ITomeRepository, TomeRepository>();
         services.AddScoped<IUserCollectionRepository, UserCollectionRepository>();
 
-        services.Configure<AuthLinkOptions>(
-                configuration.GetSection("AuthLinks"));
+        services
+            .AddOptions<AuthLinkOptions>()
+            .Bind(configuration.GetSection("AuthLinks"))
+            .Validate(
+                options => IsAbsoluteUrl(options.FrontendBaseUrl),
+                "AuthLinks:FrontendBaseUrl must be a valid absolute URL.")
+            .Validate(
+                options => environment.IsDevelopment() || IsHttpsUrl(options.FrontendBaseUrl),
+                "AuthLinks:FrontendBaseUrl must use HTTPS outside Development.")
+            .ValidateOnStart();
 
         services.Configure<AuthCleanupOptions>(
             configuration.GetSection("AuthCleanup"));
-
-        services.Configure<SmtpEmailOptions>(
-            configuration.GetSection("Smtp"));
 
         services.AddHostedService<AuthCleanupBackgroundService>();
 
@@ -47,20 +64,24 @@ public static class DependencyInjection
         services.AddScoped<ITokenHasher, TokenHasher>();
         services.AddScoped<IAuthLinkBuilder, AuthLinkBuilder>();
 
-        var smtpSection = configuration.GetSection("Smtp");
-        var smtpHost = smtpSection["Host"];
+        AddEmailSender(services, configuration, environment);
 
-        if (string.IsNullOrWhiteSpace(smtpHost))
-        {
-            services.AddScoped<IEmailSender, ConsoleEmailSender>();
-        }
-        else
-        {
-            services.AddScoped<IEmailSender, SmtpEmailSender>();
-        }
-
-        services.Configure<JwtOptions>(
-            configuration.GetSection("Jwt"));
+        services
+            .AddOptions<JwtOptions>()
+            .Bind(configuration.GetSection("Jwt"))
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.Issuer),
+                "Jwt:Issuer is required.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.Audience),
+                "Jwt:Audience is required.")
+            .Validate(
+                options => Encoding.UTF8.GetByteCount(options.SecretKey) >= MinJwtSecretKeyBytes,
+                $"Jwt:SecretKey must be at least {MinJwtSecretKeyBytes} bytes long.")
+            .Validate(
+                options => options.ExpirationMinutes is > 0 and <= 1440,
+                "Jwt:ExpirationMinutes must be between 1 and 1440.")
+            .ValidateOnStart();
 
         services.AddScoped<IPasswordHasher, PasswordHasher>();
         services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
@@ -69,11 +90,11 @@ public static class DependencyInjection
         .AddOptions<ComicVineOptions>()
         .Bind(configuration.GetSection(ComicVineOptions.SectionName))
         .Validate(
-            options => !string.IsNullOrWhiteSpace(options.BaseUrl),
-            "Comic Vine base URL is required.")
+            options => IsHttpsUrl(options.BaseUrl),
+            "Comic Vine base URL must be a valid absolute HTTPS URL.")
         .Validate(
-            options => Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out _),
-            "Comic Vine base URL must be a valid absolute URL.")
+            options => !string.IsNullOrWhiteSpace(options.ApiKey),
+            "Comic Vine API key is required.")
         .ValidateOnStart();
 
         services.AddHttpClient<IComicVineClient, ComicVineClient>((serviceProvider, client) =>
@@ -88,5 +109,56 @@ public static class DependencyInjection
         });
 
         return services;
+    }
+
+    private static void AddEmailSender(
+        IServiceCollection services,
+        IConfiguration configuration,
+        IHostEnvironment environment)
+    {
+        var smtpSection = configuration.GetSection("Smtp");
+
+        if (string.IsNullOrWhiteSpace(smtpSection["Host"]))
+        {
+            // ConsoleEmailSender writes confirmation and password reset links (which carry
+            // tokens) to the logs. That is only acceptable on a developer machine, so any
+            // other environment must fail at startup instead of silently leaking them.
+            if (!environment.IsDevelopment())
+            {
+                throw new InvalidOperationException(
+                    $"Smtp:Host is required in the '{environment.EnvironmentName}' environment.");
+            }
+
+            services.AddScoped<IEmailSender, ConsoleEmailSender>();
+            return;
+        }
+
+        services
+            .AddOptions<SmtpEmailOptions>()
+            .Bind(smtpSection)
+            .Validate(
+                options => options.Port is > 0 and <= 65535,
+                "Smtp:Port must be a valid TCP port.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.FromEmail),
+                "Smtp:FromEmail is required.")
+            .Validate(
+                options => environment.IsDevelopment() || options.EnableSsl,
+                "Smtp:EnableSsl must be true outside Development.")
+            .ValidateOnStart();
+
+        services.AddScoped<IEmailSender, SmtpEmailSender>();
+    }
+
+    private static bool IsAbsoluteUrl(string? value)
+    {
+        return Uri.TryCreate(value, UriKind.Absolute, out var uri)
+            && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
+    }
+
+    private static bool IsHttpsUrl(string? value)
+    {
+        return Uri.TryCreate(value, UriKind.Absolute, out var uri)
+            && uri.Scheme == Uri.UriSchemeHttps;
     }
 }

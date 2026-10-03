@@ -270,7 +270,7 @@ IEmailSender
 
 Implementaciones:
 
-* `ConsoleEmailSender`: usado cuando no hay SMTP configurado.
+* `ConsoleEmailSender`: usado solo en Development cuando no hay SMTP configurado.
 * `SmtpEmailSender`: usado cuando hay configuración SMTP.
 
 Esto permite usar logs en desarrollo y correos reales en producción.
@@ -295,6 +295,8 @@ appsettings.Production.json
 ```
 
 El archivo `appsettings.json` solo contiene estructura base y valores vacíos de ejemplo.
+
+La configuración crítica se valida al arrancar (`ValidateOnStart`): si falta la connection string, la clave JWT es menor de 256 bits, falta la API key de Comic Vine o las URLs no usan HTTPS fuera de Development, la aplicación no arranca. Fuera de Development también es obligatorio configurar SMTP: `ConsoleEmailSender` escribe en los logs los enlaces de confirmación y reseteo (que contienen tokens), así que solo se permite en local.
 
 ## Rate limiting
 
