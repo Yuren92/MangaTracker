@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "http://mangatracker.runasp.net/api/:path*"
+      "destination": "https://mangatracker.runasp.net/api/:path*"
     },
     {
       "source": "/:path*",

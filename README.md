@@ -7,7 +7,7 @@ La aplicación permite buscar series y ediciones usando Comic Vine, importar una
 ## Demo
 
 * Frontend: https://manga-tracker-teal.vercel.app
-* API: http://mangatracker.runasp.net
+* API: https://mangatracker.runasp.net
 * Repositorio: https://github.com/Yuren92/MangaTracker
 
 ## Funcionalidades principales
@@ -72,7 +72,7 @@ La aplicación permite buscar series y ediciones usando Comic Vine, importar una
 * Frontend desplegado en Vercel.
 * Backend desplegado en MonsterASP.NET.
 * Base de datos SQL Server remota.
-* Proxy de API mediante `vercel.json` para evitar problemas de mixed content entre Vercel y el backend HTTP.
+* Proxy de API mediante `vercel.json` (HTTPS extremo a extremo, mismo origen para la SPA).
 
 ## Estructura del proyecto
 
@@ -342,9 +342,9 @@ Características:
 
 ## Proxy en Vercel
 
-El frontend se sirve por HTTPS en Vercel, mientras que el backend gratuito está disponible por HTTP.
+El frontend se sirve por HTTPS en Vercel y el backend también se consume por HTTPS, de modo que el tráfico va cifrado de extremo a extremo.
 
-Para evitar errores de mixed content, el frontend llama a rutas relativas:
+El frontend llama a rutas relativas, del mismo origen que la propia SPA:
 
 ```txt
 /api/...
@@ -357,7 +357,7 @@ Y Vercel redirige internamente esas peticiones al backend:
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "http://mangatracker.runasp.net/api/:path*"
+      "destination": "https://mangatracker.runasp.net/api/:path*"
     },
     {
       "source": "/:path*",
@@ -367,7 +367,7 @@ Y Vercel redirige internamente esas peticiones al backend:
 }
 ```
 
-Esto también permite que las rutas internas de Angular funcionen al recargar la página.
+Al ser el mismo origen, el navegador no necesita CORS para hablar con la API. La segunda regla permite que las rutas internas de Angular funcionen al recargar la página.
 
 ## Puesta en marcha local
 

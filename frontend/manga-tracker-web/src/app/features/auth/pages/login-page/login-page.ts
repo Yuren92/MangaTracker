@@ -48,7 +48,7 @@ export class LoginPage {
         const safeReturnUrl =
           returnUrl && returnUrl.startsWith('/')
             ? returnUrl
-            : '/collection';
+            : '/collections';
 
         this.router.navigateByUrl(safeReturnUrl);
       },

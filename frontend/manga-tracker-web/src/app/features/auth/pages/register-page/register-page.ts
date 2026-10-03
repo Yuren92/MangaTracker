@@ -37,7 +37,7 @@ export class RegisterPage {
     this.authApi.register(this.form.getRawValue()).subscribe({
       next: response => {
         this.successMessage.set(
-          `Cuenta creada para ${response.email}. Revisa el enlace de confirmación en la consola del backend.`
+          `Cuenta creada para ${response.email}. Revisa tu correo para confirmar la cuenta.`
         );
 
         this.form.reset();
