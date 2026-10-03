@@ -12,13 +12,16 @@ public sealed class FakeComicVineClient : IComicVineClient
     public const string OnePieceUrl = "https://comicvine.gamespot.com/api/volume/4050-1/";
     public const string BerserkUrl = "https://comicvine.gamespot.com/api/volume/4050-2/";
     public const string UnavailableVolumeUrl = "https://comicvine.gamespot.com/api/volume/4050-503/";
+    // Two issues share the number 32 (a variant cover), as happens in Comic Vine.
+    public const string VariantVolumeUrl = "https://comicvine.gamespot.com/api/volume/4050-4/";
     public const string SlowVolumeUrl = "https://comicvine.gamespot.com/api/volume/4050-3/";
 
     private readonly Dictionary<string, ComicVineVolumeDetailDto> _volumes = new(StringComparer.OrdinalIgnoreCase)
     {
         [OnePieceUrl] = Volume(1, "One Piece", OnePieceUrl, firstIssue: 1),
         [BerserkUrl] = Volume(2, "Berserk", BerserkUrl, firstIssue: 11),
-        [SlowVolumeUrl] = Volume(3, "Naruto", SlowVolumeUrl, firstIssue: 21)
+        [SlowVolumeUrl] = Volume(3, "Naruto", SlowVolumeUrl, firstIssue: 21),
+        [VariantVolumeUrl] = VariantVolume()
     };
 
     public Task<IReadOnlyCollection<ComicVineVolumeSearchResultDto>> SearchVolumesAsync(
@@ -56,7 +59,19 @@ public sealed class FakeComicVineClient : IComicVineClient
             .SelectMany(volume => volume.Issues)
             .FirstOrDefault(issue => string.Equals(issue.ApiDetailUrl, apiDetailUrl, StringComparison.OrdinalIgnoreCase));
 
-        return Task.FromResult(issue is null ? null : ComicVineIssues.Detail(issue.NormalizedNumber!.Value));
+        return Task.FromResult(issue is null
+            ? null
+            : new ComicVineIssueDetailDto(
+                issue.ComicVineIssueId,
+                issue.IssueNumber,
+                issue.NormalizedNumber,
+                issue.Title,
+                ImageUrl: null,
+                CoverDate: null,
+                StoreDate: null,
+                Description: null,
+                issue.SiteDetailUrl,
+                issue.ApiDetailUrl));
     }
 
     private static ComicVineVolumeDetailDto Volume(int id, string name, string url, int firstIssue)
@@ -74,5 +89,21 @@ public sealed class FakeComicVineClient : IComicVineClient
             SiteDetailUrl: null,
             ApiDetailUrl: url,
             Issues: issues);
+    }
+
+    private static ComicVineVolumeDetailDto VariantVolume()
+    {
+        var variant = ComicVineIssues.Summary(32) with
+        {
+            ComicVineIssueId = 900032,
+            Title = "Volume 32 (variant cover)",
+            ApiDetailUrl = "https://comicvine.gamespot.com/api/issue/4000-900032/"
+        };
+
+        return Volume(4, "Vagabond", VariantVolumeUrl, firstIssue: 31) with
+        {
+            CountOfIssues = 4,
+            Issues = [.. Enumerable.Range(31, 3).Select(ComicVineIssues.Summary), variant]
+        };
     }
 }

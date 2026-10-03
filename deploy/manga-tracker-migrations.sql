@@ -64,7 +64,7 @@ IF NOT EXISTS (
 )
 BEGIN
     INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-    VALUES (N'20260426201243_InitialCreate', N'10.0.7');
+    VALUES (N'20260426201243_InitialCreate', N'10.0.12');
 END;
 
 COMMIT;
@@ -101,7 +101,7 @@ IF NOT EXISTS (
 )
 BEGIN
     INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-    VALUES (N'20260427104540_AddUserIdToCollectionItems', N'10.0.7');
+    VALUES (N'20260427104540_AddUserIdToCollectionItems', N'10.0.12');
 END;
 
 COMMIT;
@@ -136,7 +136,7 @@ IF NOT EXISTS (
 )
 BEGIN
     INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-    VALUES (N'20260428071256_AddUsers', N'10.0.7');
+    VALUES (N'20260428071256_AddUsers', N'10.0.12');
 END;
 
 COMMIT;
@@ -149,7 +149,7 @@ IF NOT EXISTS (
 )
 BEGIN
     INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-    VALUES (N'20260428085512_AddUserForeignKeyToCollectionItems', N'10.0.7');
+    VALUES (N'20260428085512_AddUserForeignKeyToCollectionItems', N'10.0.12');
 END;
 
 COMMIT;
@@ -170,7 +170,7 @@ IF NOT EXISTS (
 )
 BEGIN
     INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-    VALUES (N'20260428090058_AddUserForeignKeyToCollectionItems2', N'10.0.7');
+    VALUES (N'20260428090058_AddUserForeignKeyToCollectionItems2', N'10.0.12');
 END;
 
 COMMIT;
@@ -233,7 +233,7 @@ IF NOT EXISTS (
 )
 BEGIN
     INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-    VALUES (N'20260429080548_AddEmailConfirmationAndUserTokens', N'10.0.7');
+    VALUES (N'20260429080548_AddEmailConfirmationAndUserTokens', N'10.0.12');
 END;
 
 COMMIT;
@@ -423,7 +423,7 @@ IF NOT EXISTS (
 )
 BEGIN
     INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-    VALUES (N'20260503204811_AddComicVineCatalogModel', N'10.0.7');
+    VALUES (N'20260503204811_AddComicVineCatalogModel', N'10.0.12');
 END;
 
 COMMIT;
@@ -452,7 +452,7 @@ IF NOT EXISTS (
 )
 BEGIN
     INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-    VALUES (N'20260506162314_RemoveLegacyMalCollectionModel', N'10.0.7');
+    VALUES (N'20260506162314_RemoveLegacyMalCollectionModel', N'10.0.12');
 END;
 
 COMMIT;
@@ -481,7 +481,36 @@ IF NOT EXISTS (
 )
 BEGIN
     INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-    VALUES (N'20261003175922_AddUserSecurityStamp', N'10.0.7');
+    VALUES (N'20261003175922_AddUserSecurityStamp', N'10.0.12');
+END;
+
+COMMIT;
+GO
+
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261003185701_AllowDuplicateIssueNumbersPerEdition'
+)
+BEGIN
+    DROP INDEX [IX_Tomes_EditionId_IssueNumber] ON [Tomes];
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261003185701_AllowDuplicateIssueNumbersPerEdition'
+)
+BEGIN
+    CREATE INDEX [IX_Tomes_EditionId_IssueNumber] ON [Tomes] ([EditionId], [IssueNumber]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261003185701_AllowDuplicateIssueNumbersPerEdition'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261003185701_AllowDuplicateIssueNumbersPerEdition', N'10.0.12');
 END;
 
 COMMIT;

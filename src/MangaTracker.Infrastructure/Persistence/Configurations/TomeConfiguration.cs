@@ -28,8 +28,9 @@ public sealed class TomeConfiguration : IEntityTypeConfiguration<Tome>
         builder.HasIndex(tome => tome.ComicVineApiDetailUrl)
             .IsUnique();
 
-        builder.HasIndex(tome => new { tome.EditionId, tome.IssueNumber })
-            .IsUnique();
+        // Not unique: Comic Vine lists variant covers as separate issues with the same
+        // number. A tome's identity is its Comic Vine issue id (unique above).
+        builder.HasIndex(tome => new { tome.EditionId, tome.IssueNumber });
 
         builder.Property(tome => tome.IssueNumber)
             .IsRequired()
