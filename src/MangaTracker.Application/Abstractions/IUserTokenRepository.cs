@@ -17,9 +17,6 @@ public interface IUserTokenRepository
     Task DeleteExpiredOrUsedTokensAsync(
         CancellationToken cancellationToken = default);
 
-    Task SaveChangesAsync(
-        CancellationToken cancellationToken = default);
-
     Task MarkActiveTokensAsUsedAsync(
         Guid userId,
         UserTokenType type,

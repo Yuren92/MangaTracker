@@ -15,7 +15,4 @@ public interface IEditionRepository
     Task AddAsync(
         Edition edition,
         CancellationToken cancellationToken = default);
-
-    Task SaveChangesAsync(
-        CancellationToken cancellationToken = default);
 }

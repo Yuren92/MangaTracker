@@ -36,6 +36,8 @@ public static class DependencyInjection
         services.AddDbContext<MangaTrackerDbContext>(options =>
             options.UseSqlServer(connectionString));
 
+        services.AddScoped<IUnitOfWork, EfUnitOfWork>();
+
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IUserTokenRepository, UserTokenRepository>();
 

@@ -16,9 +16,6 @@ public interface IUserRepository
         User user,
         CancellationToken cancellationToken = default);
 
-    Task SaveChangesAsync(
-        CancellationToken cancellationToken = default);
-
     Task DeleteUnconfirmedUsersOlderThanAsync(
         DateTimeOffset cutoff,
         CancellationToken cancellationToken = default);

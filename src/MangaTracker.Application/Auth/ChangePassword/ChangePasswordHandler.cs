@@ -11,15 +11,18 @@ public sealed class ChangePasswordHandler
     private readonly IUserRepository _userRepository;
     private readonly IUserTokenRepository _userTokenRepository;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly IUnitOfWork _unitOfWork;
 
     public ChangePasswordHandler(
         IUserRepository userRepository,
         IUserTokenRepository userTokenRepository,
-        IPasswordHasher passwordHasher)
+        IPasswordHasher passwordHasher,
+        IUnitOfWork unitOfWork)
     {
         _userRepository = userRepository;
         _userTokenRepository = userTokenRepository;
         _passwordHasher = passwordHasher;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<ChangePasswordResult> HandleAsync(
@@ -65,7 +68,7 @@ public sealed class ChangePasswordHandler
             UserTokenType.PasswordReset,
             cancellationToken);
 
-        await _userRepository.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return new ChangePasswordResult("Password changed successfully.");
     }

@@ -51,11 +51,6 @@ public sealed class UserTokenRepository : IUserTokenRepository
         _dbContext.UserTokens.RemoveRange(tokensToDelete);
     }
 
-    public Task SaveChangesAsync(CancellationToken cancellationToken = default)
-    {
-        return _dbContext.SaveChangesAsync(cancellationToken);
-    }
-
     public async Task MarkActiveTokensAsUsedAsync(
         Guid userId,
         UserTokenType type,

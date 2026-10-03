@@ -51,9 +51,4 @@ public sealed class TomeRepository : ITomeRepository
     {
         await _dbContext.Tomes.AddAsync(tome, cancellationToken);
     }
-
-    public Task SaveChangesAsync(CancellationToken cancellationToken = default)
-    {
-        return _dbContext.SaveChangesAsync(cancellationToken);
-    }
 }

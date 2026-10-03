@@ -14,6 +14,7 @@ public sealed class ImportComicVineVolumeHandler
     private readonly ITomeRepository _tomeRepository;
     private readonly IUserCollectionRepository _userCollectionRepository;
     private readonly TimeProvider _timeProvider;
+    private readonly IUnitOfWork _unitOfWork;
 
     public ImportComicVineVolumeHandler(
         IComicVineClient comicVineClient,
@@ -21,7 +22,8 @@ public sealed class ImportComicVineVolumeHandler
         IEditionRepository editionRepository,
         ITomeRepository tomeRepository,
         IUserCollectionRepository userCollectionRepository,
-        TimeProvider timeProvider)
+        TimeProvider timeProvider,
+        IUnitOfWork unitOfWork)
     {
         _comicVineClient = comicVineClient;
         _seriesRepository = seriesRepository;
@@ -29,6 +31,7 @@ public sealed class ImportComicVineVolumeHandler
         _tomeRepository = tomeRepository;
         _userCollectionRepository = userCollectionRepository;
         _timeProvider = timeProvider;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<ImportComicVineVolumeResult> HandleAsync(
@@ -45,6 +48,26 @@ public sealed class ImportComicVineVolumeHandler
             throw new ValidationException("Comic Vine volume API detail URL is required.");
         }
 
+        try
+        {
+            return await ImportAsync(command, cancellationToken);
+        }
+        catch (UniqueConstraintViolationException)
+        {
+            // A concurrent request imported the same volume (or created this user's
+            // collection) between our reads and our save. Its rows are committed now, so
+            // a second pass from a clean state finds and reuses them instead of inserting
+            // duplicates. If it conflicts again, the 409 reaches the client.
+            _unitOfWork.DiscardChanges();
+
+            return await ImportAsync(command, cancellationToken);
+        }
+    }
+
+    private async Task<ImportComicVineVolumeResult> ImportAsync(
+        ImportComicVineVolumeCommand command,
+        CancellationToken cancellationToken)
+    {
         var existingEdition = await _editionRepository.GetByComicVineApiDetailUrlAsync(
             command.ApiDetailUrl,
             cancellationToken);
@@ -65,7 +88,7 @@ public sealed class ImportComicVineVolumeHandler
                     existingEdition.Id,
                     cancellationToken);
 
-                await _userCollectionRepository.SaveChangesAsync(cancellationToken);
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
 
                 return new ImportComicVineVolumeResult(
                     EditionId: existingEdition.Id,
@@ -202,7 +225,7 @@ public sealed class ImportComicVineVolumeHandler
             tomesWithData++;
         }
 
-        await _userCollectionRepository.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return new ImportComicVineVolumeResult(
             EditionId: edition.Id,

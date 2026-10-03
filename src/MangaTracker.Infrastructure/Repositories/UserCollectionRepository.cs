@@ -52,11 +52,6 @@ public sealed class UserCollectionRepository : IUserCollectionRepository
         await _dbContext.UserCollections.AddAsync(userCollection, cancellationToken);
     }
 
-    public Task SaveChangesAsync(CancellationToken cancellationToken = default)
-    {
-        return _dbContext.SaveChangesAsync(cancellationToken);
-    }
-
     public async Task<IReadOnlyCollection<UserCollection>> GetAllByUserIdAsync(
         Guid userId,
         CancellationToken cancellationToken = default)

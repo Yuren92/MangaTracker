@@ -50,6 +50,7 @@ public sealed class AuthCleanupBackgroundService : BackgroundService
 
         var userRepository = scope.ServiceProvider.GetRequiredService<IUserRepository>();
         var userTokenRepository = scope.ServiceProvider.GetRequiredService<IUserTokenRepository>();
+        var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
 
         var unconfirmedUsersCutoff = DateTimeOffset.UtcNow
             .AddHours(-_options.DeleteUnconfirmedUsersAfterHours);
@@ -60,7 +61,7 @@ public sealed class AuthCleanupBackgroundService : BackgroundService
             unconfirmedUsersCutoff,
             cancellationToken);
 
-        await userRepository.SaveChangesAsync(cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation(
             "Auth cleanup completed. Deleted expired/used tokens and unconfirmed users older than {Cutoff}.",

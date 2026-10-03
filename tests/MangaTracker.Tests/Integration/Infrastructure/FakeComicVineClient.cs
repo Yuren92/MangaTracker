@@ -4,16 +4,19 @@ using MangaTracker.Tests.Fakes;
 
 namespace MangaTracker.Tests.Integration.Infrastructure;
 
-// In-memory Comic Vine catalog: two volumes with three issues each.
+// In-memory Comic Vine catalog: three volumes with three issues each. Reads of the
+// "slow" volume are delayed so concurrent imports of it overlap and really race.
 public sealed class FakeComicVineClient : IComicVineClient
 {
     public const string OnePieceUrl = "https://comicvine.gamespot.com/api/volume/4050-1/";
     public const string BerserkUrl = "https://comicvine.gamespot.com/api/volume/4050-2/";
+    public const string SlowVolumeUrl = "https://comicvine.gamespot.com/api/volume/4050-3/";
 
     private readonly Dictionary<string, ComicVineVolumeDetailDto> _volumes = new(StringComparer.OrdinalIgnoreCase)
     {
         [OnePieceUrl] = Volume(1, "One Piece", OnePieceUrl, firstIssue: 1),
-        [BerserkUrl] = Volume(2, "Berserk", BerserkUrl, firstIssue: 11)
+        [BerserkUrl] = Volume(2, "Berserk", BerserkUrl, firstIssue: 11),
+        [SlowVolumeUrl] = Volume(3, "Naruto", SlowVolumeUrl, firstIssue: 21)
     };
 
     public Task<IReadOnlyCollection<ComicVineVolumeSearchResultDto>> SearchVolumesAsync(
@@ -28,10 +31,15 @@ public sealed class FakeComicVineClient : IComicVineClient
         return Task.FromResult(_volumes.Values.FirstOrDefault(volume => volume.ComicVineVolumeId == comicVineVolumeId));
     }
 
-    public Task<ComicVineVolumeDetailDto?> GetVolumeByApiDetailUrlAsync(
+    public async Task<ComicVineVolumeDetailDto?> GetVolumeByApiDetailUrlAsync(
         string apiDetailUrl, CancellationToken cancellationToken = default)
     {
-        return Task.FromResult(_volumes.GetValueOrDefault(apiDetailUrl));
+        if (string.Equals(apiDetailUrl, SlowVolumeUrl, StringComparison.OrdinalIgnoreCase))
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(200), cancellationToken);
+        }
+
+        return _volumes.GetValueOrDefault(apiDetailUrl);
     }
 
     public Task<ComicVineIssueDetailDto?> GetIssueByApiDetailUrlAsync(

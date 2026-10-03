@@ -32,9 +32,4 @@ public sealed class SeriesRepository : ISeriesRepository
     {
         await _dbContext.Series.AddAsync(series, cancellationToken);
     }
-
-    public Task SaveChangesAsync(CancellationToken cancellationToken = default)
-    {
-        return _dbContext.SaveChangesAsync(cancellationToken);
-    }
 }

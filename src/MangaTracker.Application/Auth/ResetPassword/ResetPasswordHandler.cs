@@ -12,17 +12,20 @@ public sealed class ResetPasswordHandler
     private readonly IUserTokenRepository _userTokenRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly ITokenHasher _tokenHasher;
+    private readonly IUnitOfWork _unitOfWork;
 
     public ResetPasswordHandler(
         IUserRepository userRepository,
         IUserTokenRepository userTokenRepository,
         IPasswordHasher passwordHasher,
-        ITokenHasher tokenHasher)
+        ITokenHasher tokenHasher,
+        IUnitOfWork unitOfWork)
     {
         _userRepository = userRepository;
         _userTokenRepository = userTokenRepository;
         _passwordHasher = passwordHasher;
         _tokenHasher = tokenHasher;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<ResetPasswordResult> HandleAsync(
@@ -68,7 +71,7 @@ public sealed class ResetPasswordHandler
 
         userToken.MarkAsUsed();
 
-        await _userRepository.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return new ResetPasswordResult("Password reset successfully.");
     }

@@ -42,9 +42,4 @@ public sealed class EditionRepository : IEditionRepository
     {
         await _dbContext.Editions.AddAsync(edition, cancellationToken);
     }
-
-    public Task SaveChangesAsync(CancellationToken cancellationToken = default)
-    {
-        return _dbContext.SaveChangesAsync(cancellationToken);
-    }
 }

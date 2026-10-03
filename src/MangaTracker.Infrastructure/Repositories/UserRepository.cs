@@ -39,11 +39,6 @@ public sealed class UserRepository : IUserRepository
         await _dbContext.Users.AddAsync(user, cancellationToken);
     }
 
-    public Task SaveChangesAsync(CancellationToken cancellationToken = default)
-    {
-        return _dbContext.SaveChangesAsync(cancellationToken);
-    }
-
     public async Task DeleteUnconfirmedUsersOlderThanAsync(
     DateTimeOffset cutoff,
     CancellationToken cancellationToken = default)

@@ -16,9 +16,6 @@ public interface ITomeRepository
         Tome tome,
         CancellationToken cancellationToken = default);
 
-    Task SaveChangesAsync(
-        CancellationToken cancellationToken = default);
-
     Task<IReadOnlyCollection<Tome>> GetByEditionIdAsync(
         Guid editionId,
         CancellationToken cancellationToken = default);

@@ -17,6 +17,7 @@ public sealed class SyncUserCollectionsHandlerTests
     private static readonly DateTimeOffset Now = DateTimeOffset.UtcNow.AddDays(30);
 
     private readonly IUserCollectionRepository _userCollectionRepository = Substitute.For<IUserCollectionRepository>();
+    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
     private readonly ITomeRepository _tomeRepository = Substitute.For<ITomeRepository>();
     private readonly IComicVineClient _comicVineClient = Substitute.For<IComicVineClient>();
     private readonly Guid _userId = Guid.NewGuid();
@@ -104,7 +105,7 @@ public sealed class SyncUserCollectionsHandlerTests
 
         result.NewTomes.Should().Be(2);
         await _tomeRepository.Received(2).AddAsync(Arg.Any<Tome>(), Arg.Any<CancellationToken>());
-        await _userCollectionRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -144,7 +145,7 @@ public sealed class SyncUserCollectionsHandlerTests
         result.SyncedCollections.Should().Be(1);
         broken.LastSyncedAt.Should().Be(Now);
         healthy.LastSyncedAt.Should().Be(Now);
-        await _userCollectionRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -169,7 +170,8 @@ public sealed class SyncUserCollectionsHandlerTests
             _tomeRepository,
             _comicVineClient,
             new FakeTimeProvider(Now),
-            NullLogger<SyncUserCollectionsHandler>.Instance);
+            NullLogger<SyncUserCollectionsHandler>.Instance,
+            _unitOfWork);
     }
 
     private SyncUserCollectionsCommand Command() => new(UserId: _userId);

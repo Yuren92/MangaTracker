@@ -6,10 +6,13 @@ namespace MangaTracker.Application.Collections.MarkTomeAsOwned;
 public sealed class MarkTomeAsOwnedHandler
 {
     private readonly IUserCollectionRepository _userCollectionRepository;
+    private readonly IUnitOfWork _unitOfWork;
 
-    public MarkTomeAsOwnedHandler(IUserCollectionRepository userCollectionRepository)
+    public MarkTomeAsOwnedHandler(IUserCollectionRepository userCollectionRepository,
+        IUnitOfWork unitOfWork)
     {
         _userCollectionRepository = userCollectionRepository;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<MarkTomeAsOwnedResult> HandleAsync(
@@ -51,7 +54,7 @@ public sealed class MarkTomeAsOwnedHandler
 
         collection.MarkTomeAsOwned(command.TomeId);
 
-        await _userCollectionRepository.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         var totalTomes = collection.Edition.Tomes.Count;
         var ownedTomes = collection.OwnedTomes.Count;

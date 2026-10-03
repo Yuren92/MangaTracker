@@ -15,19 +15,22 @@ public sealed class SyncUserCollectionsHandler
     private readonly IComicVineClient _comicVineClient;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<SyncUserCollectionsHandler> _logger;
+    private readonly IUnitOfWork _unitOfWork;
 
     public SyncUserCollectionsHandler(
         IUserCollectionRepository userCollectionRepository,
         ITomeRepository tomeRepository,
         IComicVineClient comicVineClient,
         TimeProvider timeProvider,
-        ILogger<SyncUserCollectionsHandler> logger)
+        ILogger<SyncUserCollectionsHandler> logger,
+        IUnitOfWork unitOfWork)
     {
         _userCollectionRepository = userCollectionRepository;
         _tomeRepository = tomeRepository;
         _comicVineClient = comicVineClient;
         _timeProvider = timeProvider;
         _logger = logger;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<SyncUserCollectionsResult> HandleAsync(
@@ -92,7 +95,7 @@ public sealed class SyncUserCollectionsHandler
             }
         }
 
-        await _userCollectionRepository.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return new SyncUserCollectionsResult(
             CheckedCollections: collections.Count,

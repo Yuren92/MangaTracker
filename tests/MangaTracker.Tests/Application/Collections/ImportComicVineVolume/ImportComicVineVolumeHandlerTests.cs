@@ -18,6 +18,7 @@ public sealed class ImportComicVineVolumeHandlerTests
     private readonly IEditionRepository _editionRepository = Substitute.For<IEditionRepository>();
     private readonly ITomeRepository _tomeRepository = Substitute.For<ITomeRepository>();
     private readonly IUserCollectionRepository _userCollectionRepository = Substitute.For<IUserCollectionRepository>();
+    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
     private readonly Guid _userId = Guid.NewGuid();
 
     public ImportComicVineVolumeHandlerTests()
@@ -96,7 +97,7 @@ public sealed class ImportComicVineVolumeHandlerTests
         await _editionRepository.Received(1).AddAsync(Arg.Any<Edition>(), Arg.Any<CancellationToken>());
         await _userCollectionRepository.Received(1).AddAsync(Arg.Any<UserCollection>(), Arg.Any<CancellationToken>());
         await _tomeRepository.Received(3).AddAsync(Arg.Any<Tome>(), Arg.Any<CancellationToken>());
-        await _userCollectionRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -190,6 +191,41 @@ public sealed class ImportComicVineVolumeHandlerTests
         await _comicVineClient.Received(1).GetVolumeByApiDetailUrlAsync(ApiDetailUrl, Arg.Any<CancellationToken>());
     }
 
+    [Fact]
+    public async Task HandleAsync_ShouldRetryFromACleanState_WhenAConcurrentImportWinsTheRace()
+    {
+        GivenComicVineVolume(issueCount: 1);
+        GivenComicVineIssues(1);
+
+        _unitOfWork
+            .SaveChangesAsync(Arg.Any<CancellationToken>())
+            .Returns(
+                _ => throw new UniqueConstraintViolationException("conflict", new Exception()),
+                _ => Task.CompletedTask);
+
+        var result = await CreateHandler().HandleAsync(Command());
+
+        result.IsCompleted.Should().BeTrue();
+        _unitOfWork.Received(1).DiscardChanges();
+        await _unitOfWork.Received(2).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_ShouldReturnConflict_WhenTheRetryAlsoConflicts()
+    {
+        GivenComicVineVolume(issueCount: 1);
+        GivenComicVineIssues(1);
+
+        _unitOfWork
+            .SaveChangesAsync(Arg.Any<CancellationToken>())
+            .Returns(_ => throw new UniqueConstraintViolationException("conflict", new Exception()));
+
+        var act = () => CreateHandler().HandleAsync(Command());
+
+        await act.Should().ThrowAsync<ConflictException>();
+        await _unitOfWork.Received(2).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
     private ImportComicVineVolumeHandler CreateHandler()
     {
         return new ImportComicVineVolumeHandler(
@@ -198,7 +234,8 @@ public sealed class ImportComicVineVolumeHandlerTests
             _editionRepository,
             _tomeRepository,
             _userCollectionRepository,
-            new FakeTimeProvider(DateTimeOffset.UtcNow));
+            new FakeTimeProvider(DateTimeOffset.UtcNow),
+            _unitOfWork);
     }
 
     private ImportComicVineVolumeCommand Command()
