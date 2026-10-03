@@ -33,5 +33,21 @@ public sealed class VariantIssueTests
         result.IsCompleted.Should().BeTrue();
     }
 
+    [Fact]
+    public async Task A_volume_with_an_issue_without_number_should_import_it()
+    {
+        // Specials and one-shots can come from Comic Vine with no issue number.
+        var (client, _) = await TestUsers.CreateSignedInAsync(_factory);
+
+        var response = await client.PostAsJsonAsync(
+            "/api/collections/import-comic-vine-volume",
+            new { apiDetailUrl = FakeComicVineClient.UnnumberedVolumeUrl });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
+        var result = await response.Content.ReadFromJsonAsync<ImportResult>();
+        result!.ImportedTomes.Should().Be(3);
+        result.IsCompleted.Should().BeTrue();
+    }
+
     private sealed record ImportResult(int TotalIssues, int ImportedTomes, bool IsCompleted);
 }

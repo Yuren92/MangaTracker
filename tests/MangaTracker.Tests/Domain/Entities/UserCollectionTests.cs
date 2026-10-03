@@ -31,6 +31,23 @@ public sealed class UserCollectionTests
         collection.OwnedTomes.Should().BeEmpty();
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData(null)]
+    public void A_tome_without_number_is_valid_and_has_no_sort_number(string? issueNumber)
+    {
+        var tome = new Tome(
+            editionId: EditionId,
+            comicVineIssueId: 1,
+            comicVineApiDetailUrl: "https://comicvine.gamespot.com/api/issue/4000-1/",
+            issueNumber: issueNumber!,
+            normalizedNumber: null);
+
+        tome.IssueNumber.Should().BeEmpty();
+        tome.NormalizedNumber.Should().BeNull();
+    }
+
     private static Tome NewTome(Guid editionId)
     {
         return new Tome(

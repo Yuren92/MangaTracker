@@ -103,7 +103,7 @@
               @for (issue of volume.issues.slice(0, 8); track issue.comicVineIssueId) {
                 <li>
                   <span>
-                    #{{ issue.issueNumber }}
+                    #{{ issue.issueNumber || 's/n' }}
                   </span>
 
                   <strong>

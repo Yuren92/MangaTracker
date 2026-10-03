@@ -17,6 +17,8 @@ public sealed class FakeComicVineClient : IComicVineClient
     // Throws an unexpected exception whose message must never reach the client.
     public const string BrokenVolumeUrl = "https://comicvine.gamespot.com/api/volume/4050-500/";
     public const string SecretInErrorMessage = "Server=prod-sql;Password=hunter2";
+    // One issue has no number (a special or one-shot), which Comic Vine sends as null.
+    public const string UnnumberedVolumeUrl = "https://comicvine.gamespot.com/api/volume/4050-6/";
     public const string SlowVolumeUrl = "https://comicvine.gamespot.com/api/volume/4050-3/";
 
     private readonly Dictionary<string, ComicVineVolumeDetailDto> _volumes = new(StringComparer.OrdinalIgnoreCase)
@@ -24,7 +26,8 @@ public sealed class FakeComicVineClient : IComicVineClient
         [OnePieceUrl] = Volume(1, "One Piece", OnePieceUrl, firstIssue: 1),
         [BerserkUrl] = Volume(2, "Berserk", BerserkUrl, firstIssue: 11),
         [SlowVolumeUrl] = Volume(3, "Naruto", SlowVolumeUrl, firstIssue: 21),
-        [VariantVolumeUrl] = VariantVolume()
+        [VariantVolumeUrl] = VariantVolume(),
+        [UnnumberedVolumeUrl] = UnnumberedVolume()
     };
 
     public Task<IReadOnlyCollection<ComicVineVolumeSearchResultDto>> SearchVolumesAsync(
@@ -112,6 +115,22 @@ public sealed class FakeComicVineClient : IComicVineClient
         {
             CountOfIssues = 4,
             Issues = [.. Enumerable.Range(31, 3).Select(ComicVineIssues.Summary), variant]
+        };
+    }
+
+    private static ComicVineVolumeDetailDto UnnumberedVolume()
+    {
+        var special = ComicVineIssues.Summary(43) with
+        {
+            IssueNumber = string.Empty,
+            NormalizedNumber = null,
+            Title = "Special"
+        };
+
+        return Volume(6, "Monster", UnnumberedVolumeUrl, firstIssue: 41) with
+        {
+            CountOfIssues = 3,
+            Issues = [ComicVineIssues.Summary(41), ComicVineIssues.Summary(42), special]
         };
     }
 }
