@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using MangaTracker.Application.Abstractions;
 using MangaTracker.Application.ComicVine.Dtos;
+using MangaTracker.Application.Common.Exceptions;
 using Microsoft.Extensions.Options;
 
 namespace MangaTracker.Infrastructure.ExternalServices.ComicVine;
@@ -153,7 +154,7 @@ public sealed class ComicVineClient : IComicVineClient
     {
         if (string.IsNullOrWhiteSpace(apiDetailUrl))
         {
-            throw new ArgumentException("Comic Vine API detail URL is required.", nameof(apiDetailUrl));
+            throw new ValidationException("Comic Vine API detail URL is required.");
         }
 
         if (string.IsNullOrWhiteSpace(_options.ApiKey))
@@ -163,24 +164,38 @@ public sealed class ComicVineClient : IComicVineClient
 
         if (!Uri.TryCreate(apiDetailUrl, UriKind.Absolute, out var uri))
         {
-            throw new ArgumentException("Comic Vine API detail URL is not valid.", nameof(apiDetailUrl));
+            throw new ValidationException("Comic Vine API detail URL is not valid.");
         }
 
-        if (!string.Equals(uri.Host, "comicvine.gamespot.com", StringComparison.OrdinalIgnoreCase))
+        // The URL comes from the client, and the API key is appended to it, so it must be
+        // pinned to the real Comic Vine API: HTTPS only (the key must never travel in clear
+        // text), exact host, default port, no credentials and the /api/ path.
+        if (uri.Scheme != Uri.UriSchemeHttps)
         {
-            throw new ArgumentException("Comic Vine API detail URL must belong to Comic Vine.", nameof(apiDetailUrl));
+            throw new ValidationException("Comic Vine API detail URL must use HTTPS.");
+        }
+
+        if (!string.Equals(uri.Host, "comicvine.gamespot.com", StringComparison.OrdinalIgnoreCase)
+            || !uri.IsDefaultPort
+            || !string.IsNullOrEmpty(uri.UserInfo))
+        {
+            throw new ValidationException("Comic Vine API detail URL must belong to Comic Vine.");
         }
 
         if (!uri.AbsolutePath.StartsWith("/api/", StringComparison.OrdinalIgnoreCase))
         {
-            throw new ArgumentException("Comic Vine API detail URL must point to the Comic Vine API.", nameof(apiDetailUrl));
+            throw new ValidationException("Comic Vine API detail URL must point to the Comic Vine API.");
         }
 
-        var separator = apiDetailUrl.Contains('?', StringComparison.Ordinal)
-            ? "&"
-            : "?";
+        // Rebuild from the parsed URI instead of reusing the raw string, so the request
+        // that is sent is exactly the one that was validated (no fragment, normalized path).
+        var baseUrl = uri.GetLeftPart(UriPartial.Path);
 
-        return $"{apiDetailUrl}{separator}api_key={Uri.EscapeDataString(_options.ApiKey)}&format=json";
+        var separator = string.IsNullOrEmpty(uri.Query)
+            ? "?"
+            : "&";
+
+        return $"{baseUrl}{uri.Query}{separator}api_key={Uri.EscapeDataString(_options.ApiKey)}&format=json";
     }
 
     private async Task<T> GetComicVineResponseAsync<T>(
