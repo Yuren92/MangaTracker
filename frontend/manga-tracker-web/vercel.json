@@ -1,10 +1,6 @@
 {
   "rewrites": [
     {
-      "source": "/api/:path*",
-      "destination": "https://mangatracker.runasp.net/api/:path*"
-    },
-    {
       "source": "/:path*",
       "destination": "/index.html"
     }

@@ -72,7 +72,7 @@ La aplicación permite buscar series y ediciones usando Comic Vine, importar una
 * Frontend desplegado en Vercel.
 * Backend desplegado en MonsterASP.NET.
 * Base de datos SQL Server remota.
-* Proxy de API mediante `vercel.json` (HTTPS extremo a extremo, mismo origen para la SPA).
+* Frontend y API comunicados directamente por HTTPS, con CORS restringido al origen del frontend.
 
 ## Estructura del proyecto
 
@@ -347,36 +347,20 @@ Características:
 * Diseño responsive.
 * Cards unificadas para catálogo, colecciones, pendientes y detalle.
 * Menú de usuario con cierre al hacer click fuera.
-* Proxy de API mediante `vercel.json`.
+* Interceptor que solo envía el JWT a la propia API.
 
-## Proxy en Vercel
+## Comunicación frontend-backend
 
-El frontend se sirve por HTTPS en Vercel y el backend también se consume por HTTPS, de modo que el tráfico va cifrado de extremo a extremo.
+El frontend (Vercel) llama directamente a la API por HTTPS (`https://mangatracker.runasp.net`), configurada en `environment.production.ts`. El backend solo acepta peticiones del origen del frontend mediante CORS (`Cors:AllowedOrigins`).
 
-El frontend llama a rutas relativas, del mismo origen que la propia SPA:
+Al principio las llamadas pasaban por un rewrite de Vercel (`/api/*` → backend). Se eliminó por dos motivos:
 
-```txt
-/api/...
-```
+* El backend ya sirve HTTPS, así que el proxy no aportaba cifrado.
+* Detrás del proxy, el backend veía la IP de Vercel en todas las peticiones, de modo que el rate limiting por IP de los endpoints anónimos (login, registro) se compartía entre todos los usuarios. Vercel no publica una lista fija de IPs, así que no se podía configurar como proxy de confianza.
 
-Y Vercel redirige internamente esas peticiones al backend:
+El interceptor de Angular solo añade el JWT a las peticiones dirigidas a la API, nunca a otros orígenes.
 
-```json
-{
-  "rewrites": [
-    {
-      "source": "/api/:path*",
-      "destination": "https://mangatracker.runasp.net/api/:path*"
-    },
-    {
-      "source": "/:path*",
-      "destination": "/index.html"
-    }
-  ]
-}
-```
-
-Al ser el mismo origen, el navegador no necesita CORS para hablar con la API. La segunda regla permite que las rutas internas de Angular funcionen al recargar la página.
+`vercel.json` mantiene únicamente el rewrite a `index.html`, necesario para que las rutas internas de Angular funcionen al recargar la página.
 
 ## Puesta en marcha local
 

@@ -3,7 +3,12 @@ import { inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { catchError, throwError } from 'rxjs';
 
+import { environment } from '../../../environments/environment';
 import { AuthState } from '../auth/auth-state';
+
+// The token is only attached to requests for our own API, never to any other origin.
+const isApiRequest = (url: string): boolean =>
+  url.startsWith(`${environment.apiUrl}/api/`);
 
 export const authInterceptor: HttpInterceptorFn = (request, next) => {
   const authState = inject(AuthState);
@@ -11,7 +16,7 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
 
   const accessToken = authState.accessToken();
 
-  const requestToSend = accessToken
+  const requestToSend = accessToken && isApiRequest(request.url)
     ? request.clone({
         setHeaders: {
           Authorization: `Bearer ${accessToken}`
