@@ -181,4 +181,45 @@ public sealed class AuthFlowTests
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
+    [Fact]
+    public async Task Changing_the_password_should_revoke_existing_tokens_and_return_a_new_one()
+    {
+        var (client, email) = await TestUsers.CreateSignedInAsync(_factory);
+        var otherSession = await TestUsers.LoginAsync(_client, email);
+
+        var change = await client.PostAsJsonAsync(
+            "/api/auth/change-password",
+            new { currentPassword = TestUsers.Password, newPassword = "Changed-Password-2" });
+        change.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await change.Content.ReadFromJsonAsync<ChangePasswordResponse>();
+
+        // The token used for the request and any other session are revoked...
+        (await client.GetAsync("/api/auth/me")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        (await GetMeAsync(otherSession)).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+        // ...and the token returned by the change keeps the current session working.
+        (await GetMeAsync(body!.AccessToken)).StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task Resetting_the_password_should_revoke_existing_tokens()
+    {
+        var (client, email) = await TestUsers.CreateSignedInAsync(_factory);
+
+        await _client.PostAsJsonAsync("/api/auth/forgot-password", new { email });
+        var token = _factory.Emails.LatestTokenFor(email, EmailKind.PasswordReset);
+        (await _client.PostAsJsonAsync("/api/auth/reset-password", new { token, newPassword = "New-Password-2" }))
+            .EnsureSuccessStatusCode();
+
+        (await client.GetAsync("/api/auth/me")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    private async Task<HttpResponseMessage> GetMeAsync(string accessToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/auth/me");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        return await _client.SendAsync(request);
+    }
+
+    private sealed record ChangePasswordResponse(string Message, string AccessToken);
 }

@@ -25,3 +25,8 @@ export interface CurrentUserResponse {
 export interface MessageResponse {
   message: string;
 }
+
+// The password change revokes every previous token, including the current one.
+export interface ChangePasswordResponse extends MessageResponse {
+  accessToken: string;
+}

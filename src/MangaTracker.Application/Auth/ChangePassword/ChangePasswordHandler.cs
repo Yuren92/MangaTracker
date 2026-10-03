@@ -11,17 +11,20 @@ public sealed class ChangePasswordHandler
     private readonly IUserRepository _userRepository;
     private readonly IUserTokenRepository _userTokenRepository;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly IJwtTokenGenerator _jwtTokenGenerator;
     private readonly IUnitOfWork _unitOfWork;
 
     public ChangePasswordHandler(
         IUserRepository userRepository,
         IUserTokenRepository userTokenRepository,
         IPasswordHasher passwordHasher,
+        IJwtTokenGenerator jwtTokenGenerator,
         IUnitOfWork unitOfWork)
     {
         _userRepository = userRepository;
         _userTokenRepository = userTokenRepository;
         _passwordHasher = passwordHasher;
+        _jwtTokenGenerator = jwtTokenGenerator;
         _unitOfWork = unitOfWork;
     }
 
@@ -70,6 +73,8 @@ public sealed class ChangePasswordHandler
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return new ChangePasswordResult("Password changed successfully.");
+        return new ChangePasswordResult(
+            Message: "Password changed successfully.",
+            AccessToken: _jwtTokenGenerator.GenerateToken(user));
     }
 }

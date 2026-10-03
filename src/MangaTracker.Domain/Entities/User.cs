@@ -11,10 +11,15 @@ public sealed class User
     public DateTimeOffset? EmailConfirmedAt { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
 
+    // Random value embedded in every access token. Rotating it invalidates all tokens
+    // issued before, which is how a password change signs the user out everywhere.
+    public string SecurityStamp { get; private set; }
+
     private User()
     {
         Email = string.Empty;
         PasswordHash = string.Empty;
+        SecurityStamp = string.Empty;
     }
 
     public User(
@@ -37,6 +42,7 @@ public sealed class User
         IsEmailConfirmed = false;
         EmailConfirmedAt = null;
         CreatedAt = DateTimeOffset.UtcNow;
+        SecurityStamp = NewSecurityStamp();
     }
 
     public void ConfirmEmail()
@@ -58,5 +64,11 @@ public sealed class User
         }
 
         PasswordHash = passwordHash;
+        SecurityStamp = NewSecurityStamp();
+    }
+
+    private static string NewSecurityStamp()
+    {
+        return Guid.NewGuid().ToString("N");
     }
 }

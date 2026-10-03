@@ -32,6 +32,17 @@ public sealed class UserRepository : IUserRepository
             .FirstOrDefaultAsync(user => user.Id == id, cancellationToken);
     }
 
+    public Task<string?> GetSecurityStampAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        return _dbContext.Users
+            .AsNoTracking()
+            .Where(user => user.Id == userId)
+            .Select(user => (string?)user.SecurityStamp)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
     public async Task AddAsync(
         User user,
         CancellationToken cancellationToken = default)

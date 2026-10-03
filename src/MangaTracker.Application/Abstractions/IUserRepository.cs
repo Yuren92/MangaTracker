@@ -12,6 +12,11 @@ public interface IUserRepository
         Guid id,
         CancellationToken cancellationToken = default);
 
+    // Read-only lookup used on every authenticated request; null if the user no longer exists.
+    Task<string?> GetSecurityStampAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default);
+
     Task AddAsync(
         User user,
         CancellationToken cancellationToken = default);

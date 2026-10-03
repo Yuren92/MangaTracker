@@ -55,6 +55,11 @@ builder.Services
             ValidateLifetime = true,
             ClockSkew = TimeSpan.FromMinutes(1)
         };
+
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = SecurityStampValidator.ValidateAsync
+        };
     });
 
 builder.Services.AddAuthorization();

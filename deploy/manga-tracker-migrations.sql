@@ -458,3 +458,32 @@ END;
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261003175922_AddUserSecurityStamp'
+)
+BEGIN
+    ALTER TABLE [Users] ADD [SecurityStamp] nvarchar(64) NOT NULL DEFAULT N'';
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261003175922_AddUserSecurityStamp'
+)
+BEGIN
+    EXEC('UPDATE [Users] SET [SecurityStamp] = LOWER(REPLACE(CONVERT(nvarchar(36), NEWID()), ''-'', ''''))')
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261003175922_AddUserSecurityStamp'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261003175922_AddUserSecurityStamp', N'10.0.7');
+END;
+
+COMMIT;
+GO
+
