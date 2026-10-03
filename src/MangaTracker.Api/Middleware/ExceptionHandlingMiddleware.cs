@@ -80,7 +80,6 @@ public sealed class ExceptionHandlingMiddleware
         string title)
     {
         context.Response.StatusCode = statusCode;
-        context.Response.ContentType = "application/problem+json";
 
         var problemDetails = new ProblemDetails
         {
@@ -89,7 +88,8 @@ public sealed class ExceptionHandlingMiddleware
             Detail = exception.Message
         };
 
-        await context.Response.WriteAsJsonAsync(problemDetails);
+        // WriteAsJsonAsync would otherwise set application/json and drop the ProblemDetails type.
+        await context.Response.WriteAsJsonAsync(problemDetails, options: null, contentType: "application/problem+json");
     }
 
     private async Task HandleUnexpectedExceptionAsync(
@@ -99,7 +99,6 @@ public sealed class ExceptionHandlingMiddleware
         _logger.LogError(exception, "An unexpected error occurred.");
 
         context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-        context.Response.ContentType = "application/problem+json";
 
         var problemDetails = new ProblemDetails
         {
@@ -108,6 +107,7 @@ public sealed class ExceptionHandlingMiddleware
             Detail = "An unexpected error occurred."
         };
 
-        await context.Response.WriteAsJsonAsync(problemDetails);
+        // WriteAsJsonAsync would otherwise set application/json and drop the ProblemDetails type.
+        await context.Response.WriteAsJsonAsync(problemDetails, options: null, contentType: "application/problem+json");
     }
 }

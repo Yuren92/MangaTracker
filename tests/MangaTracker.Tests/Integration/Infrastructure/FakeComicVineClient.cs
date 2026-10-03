@@ -14,6 +14,9 @@ public sealed class FakeComicVineClient : IComicVineClient
     public const string UnavailableVolumeUrl = "https://comicvine.gamespot.com/api/volume/4050-503/";
     // Two issues share the number 32 (a variant cover), as happens in Comic Vine.
     public const string VariantVolumeUrl = "https://comicvine.gamespot.com/api/volume/4050-4/";
+    // Throws an unexpected exception whose message must never reach the client.
+    public const string BrokenVolumeUrl = "https://comicvine.gamespot.com/api/volume/4050-500/";
+    public const string SecretInErrorMessage = "Server=prod-sql;Password=hunter2";
     public const string SlowVolumeUrl = "https://comicvine.gamespot.com/api/volume/4050-3/";
 
     private readonly Dictionary<string, ComicVineVolumeDetailDto> _volumes = new(StringComparer.OrdinalIgnoreCase)
@@ -39,6 +42,11 @@ public sealed class FakeComicVineClient : IComicVineClient
     public async Task<ComicVineVolumeDetailDto?> GetVolumeByApiDetailUrlAsync(
         string apiDetailUrl, CancellationToken cancellationToken = default)
     {
+        if (string.Equals(apiDetailUrl, BrokenVolumeUrl, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException($"Unexpected failure. {SecretInErrorMessage}");
+        }
+
         if (string.Equals(apiDetailUrl, UnavailableVolumeUrl, StringComparison.OrdinalIgnoreCase))
         {
             throw new ExternalServiceUnavailableException("Comic Vine is not available right now. Please try again later.", new HttpRequestException("503"));
