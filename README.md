@@ -523,16 +523,25 @@ El proyecto incluye:
 * Sincronización automática.
 * Vista responsive.
 
+## Decisiones y limitaciones conocidas
+
+Compromisos asumidos a propósito para el tamaño actual del proyecto, con lo que cambiaría si creciera:
+
+* **JWT en `localStorage`.** Un XSS podría leer el token. La alternativa habitual son cookies `HttpOnly` + `Secure` + `SameSite`, pero el frontend (`vercel.app`) y la API (`runasp.net`) están en dominios distintos: la cookie sería de terceros, y los navegadores ya las bloquean o las están retirando. Hacerlo bien exige servir ambos bajo el mismo dominio o un BFF, más la protección CSRF correspondiente. Mientras tanto se reduce el riesgo con tokens de vida corta, revocación por `SecurityStamp`, sanitización de Angular (versión parcheada) y un interceptor que solo envía el token a la API.
+* **Correo enviado después de guardar.** Si el SMTP falla tras el `SaveChanges`, el usuario existe pero no recibe el enlace (puede pedir otro). La solución robusta es un *outbox*: guardar el correo pendiente en la misma transacción y enviarlo desde un worker con reintentos.
+* **`Series` agrupada por título.** Comic Vine no tiene un identificador para la obra por encima del volumen, así que las ediciones se agrupan por nombre. Dos obras distintas con el mismo título acabarían en la misma serie; `Edition` y `Tome` sí usan IDs de Comic Vine.
+* **Importación síncrona y secuencial.** Hasta 250 peticiones de detalle dentro de una petición HTTP. Paralelizarlas no ayuda: Comic Vine limita por recurso y hora. Para volúmenes grandes lo correcto sería una importación en segundo plano con progreso; hoy la reanudación y la idempotencia hacen que un fallo a mitad no pierda trabajo.
+* **Validación del `SecurityStamp` en cada petición.** Una consulta por clave primaria por petición autenticada. Con más tráfico se cachearía unos segundos.
+* **Vulnerabilidades en herramientas de desarrollo.** `npm audit` reporta avisos dentro de Angular CLI/build (no llegan al navegador) que solo se pueden corregir con versiones nuevas de Angular. El CI audita las dependencias de producción.
+
 ## Próximas mejoras posibles
 
-* Añadir imágenes al README.
-* Mejorar filtros de búsqueda.
-* Añadir ordenación avanzada de colecciones.
-* Añadir dashboard/resumen inicial.
-* Añadir favoritos o wishlist.
-* Añadir paginación en sincronizaciones grandes.
+* Importación en segundo plano para volúmenes grandes.
+* Outbox para el envío de correos.
+* Frontend y API bajo el mismo dominio para pasar el token a una cookie `HttpOnly`.
+* Mejorar filtros de búsqueda y ordenación de colecciones.
+* Añadir dashboard/resumen inicial y favoritos o wishlist.
 * Añadir integración con más fuentes de catálogo.
-* Añadir tests de integración para endpoints principales.
 
 ## Autor
 
