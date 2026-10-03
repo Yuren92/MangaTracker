@@ -16,6 +16,7 @@ using MangaTracker.Application.Collections.MarkTomeAsOwned;
 using MangaTracker.Application.Collections.SyncUserCollections;
 using MangaTracker.Application.Collections.UnmarkTomeAsOwned;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace MangaTracker.Application;
 
@@ -23,6 +24,8 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
+        services.TryAddSingleton(TimeProvider.System);
+
         services.AddScoped<RegisterUserHandler>();
         services.AddScoped<LoginUserHandler>();
         services.AddScoped<GetCurrentUserHandler>();

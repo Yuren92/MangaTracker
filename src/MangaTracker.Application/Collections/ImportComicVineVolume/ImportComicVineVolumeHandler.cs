@@ -1,4 +1,4 @@
-﻿using MangaTracker.Application.Abstractions;
+using MangaTracker.Application.Abstractions;
 using MangaTracker.Application.Common.Exceptions;
 using MangaTracker.Domain.Entities;
 
@@ -13,19 +13,22 @@ public sealed class ImportComicVineVolumeHandler
     private readonly IEditionRepository _editionRepository;
     private readonly ITomeRepository _tomeRepository;
     private readonly IUserCollectionRepository _userCollectionRepository;
+    private readonly TimeProvider _timeProvider;
 
     public ImportComicVineVolumeHandler(
         IComicVineClient comicVineClient,
         ISeriesRepository seriesRepository,
         IEditionRepository editionRepository,
         ITomeRepository tomeRepository,
-        IUserCollectionRepository userCollectionRepository)
+        IUserCollectionRepository userCollectionRepository,
+        TimeProvider timeProvider)
     {
         _comicVineClient = comicVineClient;
         _seriesRepository = seriesRepository;
         _editionRepository = editionRepository;
         _tomeRepository = tomeRepository;
         _userCollectionRepository = userCollectionRepository;
+        _timeProvider = timeProvider;
     }
 
     public async Task<ImportComicVineVolumeResult> HandleAsync(
@@ -42,36 +45,38 @@ public sealed class ImportComicVineVolumeHandler
             throw new ValidationException("Comic Vine volume API detail URL is required.");
         }
 
-        var existingEdition = await _editionRepository.GetByComicVineApiDetailUrlWithTomesAsync(
+        var existingEdition = await _editionRepository.GetByComicVineApiDetailUrlAsync(
             command.ApiDetailUrl,
             cancellationToken);
 
-        if (existingEdition is not null && existingEdition.Tomes.Count > 0)
+        if (existingEdition is not null)
         {
-            var existingUserCollection = await _userCollectionRepository.GetByUserIdAndEditionIdAsync(
-                command.UserId,
+            var storedTomes = await _tomeRepository.GetByEditionIdAsync(
                 existingEdition.Id,
                 cancellationToken);
 
-            if (existingUserCollection is null)
+            // Fast path: the edition is already fully imported, so only the user's
+            // collection is needed and Comic Vine is not called at all. A partially
+            // imported edition does not qualify and falls through to resume the import.
+            if (existingEdition.HasAllTomes(storedTomes.Count))
             {
-                existingUserCollection = new UserCollection(
-                    userId: command.UserId,
-                    editionId: existingEdition.Id);
+                var collection = await GetOrAddUserCollectionAsync(
+                    command.UserId,
+                    existingEdition.Id,
+                    cancellationToken);
 
-                await _userCollectionRepository.AddAsync(existingUserCollection, cancellationToken);
                 await _userCollectionRepository.SaveChangesAsync(cancellationToken);
-            }
 
-            return new ImportComicVineVolumeResult(
-                EditionId: existingEdition.Id,
-                UserCollectionId: existingUserCollection.Id,
-                ComicVineVolumeId: existingEdition.ComicVineVolumeId,
-                Title: existingEdition.Series.Title,
-                PublisherName: existingEdition.PublisherName,
-                TotalIssues: existingEdition.Tomes.Count,
-                ImportedTomes: existingEdition.Tomes.Count,
-                IsCompleted: true);
+                return new ImportComicVineVolumeResult(
+                    EditionId: existingEdition.Id,
+                    UserCollectionId: collection.Id,
+                    ComicVineVolumeId: existingEdition.ComicVineVolumeId,
+                    Title: existingEdition.Name,
+                    PublisherName: existingEdition.PublisherName,
+                    TotalIssues: storedTomes.Count,
+                    ImportedTomes: storedTomes.Count,
+                    IsCompleted: true);
+            }
         }
 
         var volume = await _comicVineClient.GetVolumeByApiDetailUrlAsync(
@@ -111,7 +116,7 @@ public sealed class ImportComicVineVolumeHandler
                 imageUrl: volume.ImageUrl);
         }
 
-        var edition = await _editionRepository.GetByComicVineApiDetailUrlAsync(
+        var edition = existingEdition ?? await _editionRepository.GetByComicVineApiDetailUrlAsync(
             volume.ApiDetailUrl,
             cancellationToken);
 
@@ -140,85 +145,61 @@ public sealed class ImportComicVineVolumeHandler
                 description: volume.Description,
                 imageUrl: volume.ImageUrl,
                 siteDetailUrl: volume.SiteDetailUrl,
-                issueCount: volume.CountOfIssues);
+                issueCount: volume.CountOfIssues,
+                syncedAt: _timeProvider.GetUtcNow());
         }
 
-        var userCollection = await _userCollectionRepository.GetByUserIdAndEditionIdAsync(
+        var userCollection = await GetOrAddUserCollectionAsync(
             command.UserId,
             edition.Id,
             cancellationToken);
-
-        if (userCollection is null)
-        {
-            userCollection = new UserCollection(
-                userId: command.UserId,
-                editionId: edition.Id);
-
-            await _userCollectionRepository.AddAsync(userCollection, cancellationToken);
-        }
-
-        var importedTomes = 0;
 
         var existingTomes = await _tomeRepository.GetByEditionIdAsync(
             edition.Id,
             cancellationToken);
 
-        var existingTomesByApiDetailUrl = existingTomes
-            .Where(tome => !string.IsNullOrWhiteSpace(tome.ComicVineApiDetailUrl))
-            .ToDictionary(
-                tome => tome.ComicVineApiDetailUrl,
-                StringComparer.OrdinalIgnoreCase);
+        var storedIssueUrls = existingTomes
+            .Select(tome => tome.ComicVineApiDetailUrl)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        var issueSummaries = volume.Issues
+        // Only issues without a stored tome are requested, so retrying a partial
+        // import costs one call per missing issue instead of one per issue, and
+        // running the same import twice adds nothing.
+        var missingIssues = volume.Issues
+            .Where(issue => !storedIssueUrls.Contains(issue.ApiDetailUrl))
             .OrderBy(issue => issue.NormalizedNumber ?? int.MaxValue)
             .ThenBy(issue => issue.IssueNumber, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        foreach (var issueSummary in issueSummaries)
+        var tomesWithData = volume.Issues.Count - missingIssues.Count;
+
+        foreach (var issueSummary in missingIssues)
         {
             var issueDetail = await _comicVineClient.GetIssueByApiDetailUrlAsync(
                 issueSummary.ApiDetailUrl,
                 cancellationToken);
 
-            if (issueDetail is null)
+            if (issueDetail is null || !storedIssueUrls.Add(issueDetail.ApiDetailUrl))
             {
+                // Missing in Comic Vine (retried on the next import) or a duplicate.
                 continue;
             }
 
-            existingTomesByApiDetailUrl.TryGetValue(
-                issueDetail.ApiDetailUrl,
-                out var existingTome);
+            var tome = new Tome(
+                editionId: edition.Id,
+                comicVineIssueId: issueDetail.ComicVineIssueId,
+                comicVineApiDetailUrl: issueDetail.ApiDetailUrl,
+                issueNumber: issueDetail.IssueNumber,
+                normalizedNumber: issueDetail.NormalizedNumber,
+                title: issueDetail.Title,
+                imageUrl: issueDetail.ImageUrl,
+                coverDate: issueDetail.CoverDate,
+                storeDate: issueDetail.StoreDate,
+                siteDetailUrl: issueDetail.SiteDetailUrl);
 
-            if (existingTome is null)
-            {
-                var tome = new Tome(
-                    editionId: edition.Id,
-                    comicVineIssueId: issueDetail.ComicVineIssueId,
-                    comicVineApiDetailUrl: issueDetail.ApiDetailUrl,
-                    issueNumber: issueDetail.IssueNumber,
-                    normalizedNumber: issueDetail.NormalizedNumber,
-                    title: issueDetail.Title,
-                    imageUrl: issueDetail.ImageUrl,
-                    coverDate: issueDetail.CoverDate,
-                    storeDate: issueDetail.StoreDate,
-                    siteDetailUrl: issueDetail.SiteDetailUrl);
+            await _tomeRepository.AddAsync(tome, cancellationToken);
 
-                await _tomeRepository.AddAsync(tome, cancellationToken);
-                existingTomesByApiDetailUrl[tome.ComicVineApiDetailUrl] = tome;
-            }
-            else
-            {
-                existingTome.SyncDetails(
-                    issueNumber: issueDetail.IssueNumber,
-                    normalizedNumber: issueDetail.NormalizedNumber,
-                    title: issueDetail.Title,
-                    imageUrl: issueDetail.ImageUrl,
-                    coverDate: issueDetail.CoverDate,
-                    storeDate: issueDetail.StoreDate,
-                    siteDetailUrl: issueDetail.SiteDetailUrl);
-            }
-
-            importedTomes++;
+            tomesWithData++;
         }
 
         await _userCollectionRepository.SaveChangesAsync(cancellationToken);
@@ -230,7 +211,31 @@ public sealed class ImportComicVineVolumeHandler
             Title: volume.Name,
             PublisherName: volume.PublisherName,
             TotalIssues: volume.Issues.Count,
-            ImportedTomes: importedTomes,
-            IsCompleted: importedTomes == volume.Issues.Count);
+            ImportedTomes: tomesWithData,
+            IsCompleted: tomesWithData == volume.Issues.Count);
+    }
+
+    private async Task<UserCollection> GetOrAddUserCollectionAsync(
+        Guid userId,
+        Guid editionId,
+        CancellationToken cancellationToken)
+    {
+        var userCollection = await _userCollectionRepository.GetByUserIdAndEditionIdAsync(
+            userId,
+            editionId,
+            cancellationToken);
+
+        if (userCollection is not null)
+        {
+            return userCollection;
+        }
+
+        userCollection = new UserCollection(
+            userId: userId,
+            editionId: editionId);
+
+        await _userCollectionRepository.AddAsync(userCollection, cancellationToken);
+
+        return userCollection;
     }
 }

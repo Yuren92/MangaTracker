@@ -18,8 +18,4 @@ public interface IEditionRepository
 
     Task SaveChangesAsync(
         CancellationToken cancellationToken = default);
-
-    Task<Edition?> GetByComicVineApiDetailUrlWithTomesAsync(
-    string apiDetailUrl,
-    CancellationToken cancellationToken = default);
 }
