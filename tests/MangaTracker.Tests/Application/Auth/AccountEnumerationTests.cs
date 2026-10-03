@@ -30,7 +30,7 @@ public sealed class AccountEnumerationTests
     {
         _userRepository.GetByEmailAsync(Email, Arg.Any<CancellationToken>()).Returns((User?)null);
 
-        var handler = new LoginUserHandler(_userRepository, _passwordHasher, Substitute.For<IJwtTokenGenerator>());
+        var handler = new LoginUserHandler(_userRepository, _passwordHasher, Substitute.For<IJwtTokenGenerator>(), Substitute.For<IUnitOfWork>());
 
         var act = () => handler.HandleAsync(new LoginUserCommand(Email, Password));
 

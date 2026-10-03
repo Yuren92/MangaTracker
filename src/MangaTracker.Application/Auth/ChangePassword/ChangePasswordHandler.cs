@@ -55,7 +55,7 @@ public sealed class ChangePasswordHandler
 
         var isCurrentPasswordValid = _passwordHasher.VerifyPassword(
             command.CurrentPassword,
-            user.PasswordHash);
+            user.PasswordHash) != PasswordVerificationResult.Failed;
 
         if (!isCurrentPasswordValid)
         {

@@ -67,6 +67,19 @@ public sealed class User
         SecurityStamp = NewSecurityStamp();
     }
 
+    // Same password, stronger hash (e.g. more PBKDF2 iterations). Unlike a password
+    // change, this must not rotate the security stamp: it would sign the user out of
+    // every other session just for logging in.
+    public void UpgradePasswordHash(string passwordHash)
+    {
+        if (string.IsNullOrWhiteSpace(passwordHash))
+        {
+            throw new DomainException("Password hash is required.");
+        }
+
+        PasswordHash = passwordHash;
+    }
+
     private static string NewSecurityStamp()
     {
         return Guid.NewGuid().ToString("N");
