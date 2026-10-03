@@ -467,12 +467,27 @@ Para ejecutar los tests:
 dotnet test
 ```
 
-Hay dos tipos:
+Hay tres tipos:
 
 * **Unitarios**: handlers de Application con dependencias sustituidas (NSubstitute), validación de configuración, `ComicVineClient` con un `HttpMessageHandler` falso y partición del rate limiting. El tiempo se inyecta con `TimeProvider` para poder probar cooldowns y ordenación.
 * **Integración** (`tests/MangaTracker.Tests/Integration`): levantan la API real en memoria con `WebApplicationFactory` contra un SQL Server de verdad. Cada ejecución crea una base de datos nueva aplicando las migraciones y la borra al terminar. Solo se sustituyen los servicios externos (correo y Comic Vine). Cubren el flujo de autenticación (registro, confirmación, login, recuperación y cambio de contraseña, tokens de un solo uso, no enumeración de usuarios) y la autorización entre usuarios (un usuario no puede leer ni modificar colecciones de otro aunque conozca su id).
 
 Los tests de integración usan LocalDB por defecto. Para usar otro servidor, define `MANGATRACKER_TEST_SQLSERVER` con una connection string sin base de datos. No se usa SQLite porque EF Core no traduce a SQLite las comparaciones de `DateTimeOffset` de las consultas de tokens.
+
+### Tests end-to-end (Playwright)
+
+Prueban la aplicación completa en un navegador: Angular + API real en Development + LocalDB.
+
+```powershell
+cd frontend/manga-tracker-web
+npx playwright install chromium   # solo la primera vez
+npm run e2e
+```
+
+* El global setup arranca la API (`dotnet run`, entorno Development) y guarda su log en `e2e/.artifacts/api.log`; Playwright arranca `ng serve`. El puerto 5243 debe estar libre.
+* Sin SMTP en Development, la API escribe en el log los enlaces de confirmación y recuperación; los tests los leen de ahí, como si fuera la bandeja de entrada.
+* Los límites de rate limiting se suben solo para esta ejecución (`RateLimiting__auth-sensitive`, etc.).
+* El test del catálogo usa Comic Vine de verdad: necesita `ComicVine:ApiKey` en `appsettings.Development.json` y se salta si la API responde 503.
 
 ## Despliegue
 
