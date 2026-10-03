@@ -7,11 +7,13 @@ using MangaTracker.Infrastructure.Auth;
 using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using System.Net;
 using System.Text;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
 using MangaTracker.Api.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -57,67 +59,49 @@ builder.Services
 
 builder.Services.AddAuthorization();
 
+// Only the proxies listed in configuration are trusted to report the client IP through
+// X-Forwarded-For. Trusting the header from anyone would let a caller pick a new
+// "IP" on every request and bypass the per-IP limits on anonymous endpoints.
+var trustedProxies = builder.Configuration
+    .GetSection("ForwardedHeaders:KnownProxies")
+    .Get<string[]>() ?? [];
+
+var trustedNetworks = builder.Configuration
+    .GetSection("ForwardedHeaders:KnownNetworks")
+    .Get<string[]>() ?? [];
+
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    // Empty KnownProxies and KnownIPNetworks lists mean "trust every proxy" in ASP.NET,
+    // so with nothing configured the headers are ignored altogether.
+    if (trustedProxies.Length == 0 && trustedNetworks.Length == 0)
+    {
+        options.ForwardedHeaders = ForwardedHeaders.None;
+        return;
+    }
+
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+
+    // Replace the default (loopback) with exactly the configured proxies.
+    options.KnownProxies.Clear();
+    options.KnownIPNetworks.Clear();
+
+    foreach (var proxy in trustedProxies)
+    {
+        options.KnownProxies.Add(IPAddress.Parse(proxy));
+    }
+
+    foreach (var network in trustedNetworks)
+    {
+        options.KnownIPNetworks.Add(System.Net.IPNetwork.Parse(network));
+    }
+});
+
 builder.Services.AddRateLimiter(options =>
 {
-    options.AddPolicy(RateLimitPolicies.AuthSensitive, context =>
-    {
-        var ipAddress = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-
-        return RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: ipAddress,
-            factory: _ => new FixedWindowRateLimiterOptions
-            {
-                PermitLimit = 5,
-                Window = TimeSpan.FromMinutes(1),
-                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-                QueueLimit = 0
-            });
-    });
-
-    options.AddPolicy(RateLimitPolicies.AuthNormal, context =>
-    {
-        var ipAddress = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-
-        return RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: ipAddress,
-            factory: _ => new FixedWindowRateLimiterOptions
-            {
-                PermitLimit = 20,
-                Window = TimeSpan.FromMinutes(1),
-                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-                QueueLimit = 0
-            });
-    });
-
-    options.AddPolicy(RateLimitPolicies.ExternalApi, context =>
-    {
-        var ipAddress = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-
-        return RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: ipAddress,
-            factory: _ => new FixedWindowRateLimiterOptions
-            {
-                PermitLimit = 30,
-                Window = TimeSpan.FromMinutes(1),
-                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-                QueueLimit = 0
-            });
-    });
-
-    options.AddPolicy(RateLimitPolicies.ComicVineImport, context =>
-    {
-        var ipAddress = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-
-        return RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: ipAddress,
-            factory: _ => new FixedWindowRateLimiterOptions
-            {
-                PermitLimit = 5,
-                Window = TimeSpan.FromMinutes(1),
-                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-                QueueLimit = 0
-            });
-    });
+    AddFixedWindowPolicy(options, RateLimitPolicies.AuthSensitive, permitLimit: 5);
+    AddFixedWindowPolicy(options, RateLimitPolicies.ExternalApi, permitLimit: 30);
+    AddFixedWindowPolicy(options, RateLimitPolicies.ComicVineImport, permitLimit: 5);
 
     options.OnRejected = async (context, cancellationToken) =>
     {
@@ -163,15 +147,19 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+// Must run first so every later component sees the real client IP and scheme.
+app.UseForwardedHeaders();
+
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 app.UseHttpsRedirection();
 
 app.UseCors("frontend");
 
-app.UseRateLimiter();
-
+// Authentication runs before rate limiting so authenticated endpoints can be
+// limited per user instead of per IP.
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapHealthChecks("/health");
@@ -180,3 +168,16 @@ app.MapControllers();
 
 app.Run();
 
+static void AddFixedWindowPolicy(RateLimiterOptions options, string policyName, int permitLimit)
+{
+    options.AddPolicy(policyName, context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: RateLimitPartitionKey.For(context),
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = permitLimit,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            }));
+}

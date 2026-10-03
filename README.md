@@ -311,6 +311,13 @@ Ejemplos:
 
 Esto ayuda a proteger la API y a no abusar de Comic Vine.
 
+La partición depende del tipo de endpoint:
+
+* Endpoints autenticados (catálogo, importación, sincronización): límite por usuario, a partir del id del JWT. No se puede falsificar y no depende de los proxies que haya delante de la API.
+* Endpoints anónimos (login, registro, recuperación de contraseña): límite por IP del cliente.
+
+Para que la IP sea la del cliente real detrás de un proxy, la cabecera `X-Forwarded-For` solo se acepta de los proxies configurados en `ForwardedHeaders:KnownProxies` / `ForwardedHeaders:KnownNetworks`. Si no hay ninguno configurado, la cabecera se ignora por completo: en ASP.NET, dejar esas listas vacías significa confiar en cualquiera, y eso permitiría a un atacante inventarse una IP nueva en cada petición para saltarse el límite.
+
 ## Gestión de errores
 
 La API usa un middleware global de excepciones que transforma errores conocidos en respuestas `ProblemDetails`.
