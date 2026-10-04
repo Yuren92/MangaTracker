@@ -18,6 +18,8 @@ export default async function globalSetup(): Promise<void> {
     {
       cwd: repoRoot,
       stdio: ['ignore', log, log],
+      // Own process group on Linux/macOS so teardown can stop dotnet run and the API it starts.
+      detached: process.platform !== 'win32',
       env: {
         ...process.env,
         ASPNETCORE_ENVIRONMENT: 'Development',

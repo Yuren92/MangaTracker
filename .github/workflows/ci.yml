@@ -94,3 +94,74 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  e2e:
+    name: End-to-end (Playwright)
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: "Ci-Only-Passw0rd!"
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'Ci-Only-Passw0rd!' -C -Q 'SELECT 1' || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 12
+
+    # appsettings.Development.json is not in the repository, so the API gets its
+    # Development configuration from the environment. No Comic Vine key here: the
+    # catalog test detects that and skips itself.
+    env:
+      DOTNET_NOLOGO: "true"
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__MangaTrackerDb: "Server=localhost,1433;Database=MangaTrackerE2E;User Id=sa;Password=Ci-Only-Passw0rd!;TrustServerCertificate=True"
+      Jwt__SecretKey: "ci-only-development-signing-key-of-sufficient-length"
+      AuthLinks__FrontendBaseUrl: "http://localhost:4200"
+      Cors__AllowedOrigins__0: "http://localhost:4200"
+      ComicVine__ApiKey: "not-configured-in-ci"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/manga-tracker-web/package-lock.json
+
+      - name: Build API
+        run: dotnet build src/MangaTracker.Api
+
+      - name: Create database
+        run: |
+          dotnet tool install --global dotnet-ef
+          dotnet ef database update --project src/MangaTracker.Infrastructure --startup-project src/MangaTracker.Api --no-build
+
+      - name: Install frontend and browser
+        working-directory: frontend/manga-tracker-web
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Run end-to-end tests
+        working-directory: frontend/manga-tracker-web
+        run: npm run e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            frontend/manga-tracker-web/playwright-report
+            frontend/manga-tracker-web/e2e/.artifacts/api.log
