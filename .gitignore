@@ -405,3 +405,6 @@ packages/
 # OS
 .DS_Store
 Thumbs.db
+# Local deployment credentials (MonsterASP publish profile)
+deploy/private/
+*.publishSettings
