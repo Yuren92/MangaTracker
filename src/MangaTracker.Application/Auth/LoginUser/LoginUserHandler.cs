@@ -7,18 +7,25 @@ namespace MangaTracker.Application.Auth.LoginUser;
 
 public sealed class LoginUserHandler
 {
+    // Hash of a random value, computed once. Unknown emails are verified against it so
+    // they take as long as a wrong password and response times reveal nothing.
+    private static string? _unknownUserPasswordHash;
+
     private readonly IUserRepository _userRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtTokenGenerator _jwtTokenGenerator;
+    private readonly IUnitOfWork _unitOfWork;
 
     public LoginUserHandler(
         IUserRepository userRepository,
         IPasswordHasher passwordHasher,
-        IJwtTokenGenerator jwtTokenGenerator)
+        IJwtTokenGenerator jwtTokenGenerator,
+        IUnitOfWork unitOfWork)
     {
         _userRepository = userRepository;
         _passwordHasher = passwordHasher;
         _jwtTokenGenerator = jwtTokenGenerator;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<LoginUserResult> HandleAsync(
@@ -36,16 +43,11 @@ public sealed class LoginUserHandler
             normalizedEmail,
             cancellationToken);
 
-        if (user is null)
-        {
-            throw new ValidationException("Invalid email or password.");
-        }
-
-        var isPasswordValid = _passwordHasher.VerifyPassword(
+        var verification = _passwordHasher.VerifyPassword(
             command.Password,
-            user.PasswordHash);
+            user?.PasswordHash ?? GetUnknownUserPasswordHash());
 
-        if (!isPasswordValid)
+        if (user is null || verification == PasswordVerificationResult.Failed)
         {
             throw new ValidationException("Invalid email or password.");
         }
@@ -55,8 +57,22 @@ public sealed class LoginUserHandler
             throw new ValidationException("Email is not confirmed.");
         }
 
+        if (verification == PasswordVerificationResult.SuccessRehashNeeded)
+        {
+            // The plain password is only available here, at login, so this is when a hash
+            // made with older parameters (e.g. Identity 2.x, 10,000 PBKDF2 iterations) is
+            // replaced by one with the current ones.
+            user.UpgradePasswordHash(_passwordHasher.HashPassword(command.Password));
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+
         var accessToken = _jwtTokenGenerator.GenerateToken(user);
 
         return new LoginUserResult(accessToken);
+    }
+
+    private string GetUnknownUserPasswordHash()
+    {
+        return _unknownUserPasswordHash ??= _passwordHasher.HashPassword(Guid.NewGuid().ToString("N"));
     }
 }

@@ -21,6 +21,8 @@ public sealed class ResendConfirmationEmailHandler
     private readonly ITokenHasher _tokenHasher;
     private readonly IAuthLinkBuilder _authLinkBuilder;
     private readonly IEmailSender _emailSender;
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly TimeProvider _timeProvider;
 
     public ResendConfirmationEmailHandler(
         IUserRepository userRepository,
@@ -28,7 +30,9 @@ public sealed class ResendConfirmationEmailHandler
         ITokenGenerator tokenGenerator,
         ITokenHasher tokenHasher,
         IAuthLinkBuilder authLinkBuilder,
-        IEmailSender emailSender)
+        IEmailSender emailSender,
+        IUnitOfWork unitOfWork,
+        TimeProvider timeProvider)
     {
         _userRepository = userRepository;
         _userTokenRepository = userTokenRepository;
@@ -36,6 +40,8 @@ public sealed class ResendConfirmationEmailHandler
         _tokenHasher = tokenHasher;
         _authLinkBuilder = authLinkBuilder;
         _emailSender = emailSender;
+        _unitOfWork = unitOfWork;
+        _timeProvider = timeProvider;
     }
 
     public async Task<ResendConfirmationEmailResult> HandleAsync(
@@ -64,10 +70,10 @@ public sealed class ResendConfirmationEmailHandler
             userId: user.Id,
             tokenHash: confirmationTokenHash,
             type: UserTokenType.EmailConfirmation,
-            expiresAt: DateTimeOffset.UtcNow.Add(EmailConfirmationTokenLifetime));
+            expiresAt: _timeProvider.GetUtcNow().Add(EmailConfirmationTokenLifetime));
 
         await _userTokenRepository.AddAsync(userToken, cancellationToken);
-        await _userTokenRepository.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         var confirmationUrl = _authLinkBuilder.BuildEmailConfirmationUrl(confirmationToken);
 

@@ -6,10 +6,17 @@ namespace MangaTracker.Application.Collections.MarkTomeAsOwned;
 public sealed class MarkTomeAsOwnedHandler
 {
     private readonly IUserCollectionRepository _userCollectionRepository;
+    private readonly ITomeRepository _tomeRepository;
+    private readonly IUnitOfWork _unitOfWork;
 
-    public MarkTomeAsOwnedHandler(IUserCollectionRepository userCollectionRepository)
+    public MarkTomeAsOwnedHandler(
+        IUserCollectionRepository userCollectionRepository,
+        ITomeRepository tomeRepository,
+        IUnitOfWork unitOfWork)
     {
         _userCollectionRepository = userCollectionRepository;
+        _tomeRepository = tomeRepository;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<MarkTomeAsOwnedResult> HandleAsync(
@@ -41,17 +48,13 @@ public sealed class MarkTomeAsOwnedHandler
             throw new NotFoundException("Collection was not found.");
         }
 
-        var tomeBelongsToCollection = collection.Edition.Tomes.Any(tome =>
-            tome.Id == command.TomeId);
+        var tome = await _tomeRepository.GetByIdAsync(command.TomeId, cancellationToken)
+            ?? throw new NotFoundException("Tome was not found.");
 
-        if (!tomeBelongsToCollection)
-        {
-            throw new ValidationException("Tome does not belong to this collection.");
-        }
+        // The domain rejects tomes from another edition (400).
+        collection.MarkTomeAsOwned(tome);
 
-        collection.MarkTomeAsOwned(command.TomeId);
-
-        await _userCollectionRepository.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         var totalTomes = collection.Edition.Tomes.Count;
         var ownedTomes = collection.OwnedTomes.Count;

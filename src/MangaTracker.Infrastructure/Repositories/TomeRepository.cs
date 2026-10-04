@@ -14,16 +14,23 @@ public sealed class TomeRepository : ITomeRepository
         _dbContext = dbContext;
     }
 
-    public Task<Tome?> GetByComicVineApiDetailUrlAsync(
-        string apiDetailUrl,
+    public async Task<IReadOnlyCollection<Tome>> GetByComicVineApiDetailUrlsAsync(
+        IReadOnlyCollection<string> apiDetailUrls,
         CancellationToken cancellationToken = default)
     {
-        var normalizedUrl = apiDetailUrl.Trim();
+        if (apiDetailUrls.Count == 0)
+        {
+            return [];
+        }
 
-        return _dbContext.Tomes
-            .FirstOrDefaultAsync(
-                tome => tome.ComicVineApiDetailUrl == normalizedUrl,
-                cancellationToken);
+        var normalizedUrls = apiDetailUrls
+            .Select(url => url.Trim())
+            .Distinct()
+            .ToList();
+
+        return await _dbContext.Tomes
+            .Where(tome => normalizedUrls.Contains(tome.ComicVineApiDetailUrl))
+            .ToListAsync(cancellationToken);
     }
 
     public Task<Tome?> GetByIdAsync(
@@ -50,10 +57,5 @@ public sealed class TomeRepository : ITomeRepository
         CancellationToken cancellationToken = default)
     {
         await _dbContext.Tomes.AddAsync(tome, cancellationToken);
-    }
-
-    public Task SaveChangesAsync(CancellationToken cancellationToken = default)
-    {
-        return _dbContext.SaveChangesAsync(cancellationToken);
     }
 }

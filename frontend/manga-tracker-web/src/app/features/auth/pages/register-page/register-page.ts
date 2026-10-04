@@ -35,9 +35,10 @@ export class RegisterPage {
     this.successMessage.set(null);
 
     this.authApi.register(this.form.getRawValue()).subscribe({
-      next: response => {
+      next: () => {
+        // The API answers the same whether or not the email already had an account.
         this.successMessage.set(
-          `Cuenta creada para ${response.email}. Revisa el enlace de confirmación en la consola del backend.`
+          'Si el email se puede usar, te hemos enviado un correo con los siguientes pasos.'
         );
 
         this.form.reset();

@@ -57,16 +57,11 @@ public sealed class Tome
             throw new DomainException("Comic Vine issue API detail URL is required.");
         }
 
-        if (string.IsNullOrWhiteSpace(issueNumber))
-        {
-            throw new DomainException("Issue number is required.");
-        }
-
         Id = Guid.NewGuid();
         EditionId = editionId;
         ComicVineIssueId = comicVineIssueId;
         ComicVineApiDetailUrl = comicVineApiDetailUrl.Trim();
-        IssueNumber = issueNumber.Trim();
+        IssueNumber = NormalizeIssueNumber(issueNumber);
         NormalizedNumber = NormalizeNumber(normalizedNumber);
         Title = NormalizeOptionalText(title);
         ImageUrl = NormalizeOptionalText(imageUrl);
@@ -85,12 +80,7 @@ public sealed class Tome
         DateOnly? storeDate,
         string? siteDetailUrl)
     {
-        if (string.IsNullOrWhiteSpace(issueNumber))
-        {
-            throw new DomainException("Issue number is required.");
-        }
-
-        IssueNumber = issueNumber.Trim();
+        IssueNumber = NormalizeIssueNumber(issueNumber);
         NormalizedNumber = NormalizeNumber(normalizedNumber);
         Title = NormalizeOptionalText(title);
         ImageUrl = NormalizeOptionalText(imageUrl);
@@ -98,6 +88,13 @@ public sealed class Tome
         StoreDate = storeDate;
         SiteDetailUrl = NormalizeOptionalText(siteDetailUrl);
         UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    // Specials and one-shots can come from Comic Vine without a number. They are still
+    // tomes (identified by their Comic Vine id); they just sort last.
+    private static string NormalizeIssueNumber(string? issueNumber)
+    {
+        return issueNumber?.Trim() ?? string.Empty;
     }
 
     private static string? NormalizeOptionalText(string? value)

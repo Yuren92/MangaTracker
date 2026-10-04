@@ -1,9 +1,14 @@
 using System.Globalization;
+using System.Net;
+using System.Text.Json;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using MangaTracker.Application.Abstractions;
 using MangaTracker.Application.ComicVine.Dtos;
+using MangaTracker.Application.Common.Exceptions;
 using Microsoft.Extensions.Options;
+using Polly.CircuitBreaker;
+using Polly.Timeout;
 
 namespace MangaTracker.Infrastructure.ExternalServices.ComicVine;
 
@@ -44,6 +49,11 @@ public sealed class ComicVineClient : IComicVineClient
         var response = await GetComicVineResponseAsync<ComicVineListResponse<ComicVineVolumeResource>>(
             url,
             cancellationToken);
+
+        if (response is null)
+        {
+            return [];
+        }
 
         return response.Results
             .Select(volume => new ComicVineVolumeSearchResultDto(
@@ -86,7 +96,7 @@ public sealed class ComicVineClient : IComicVineClient
             url,
             cancellationToken);
 
-        var volume = response.Results;
+        var volume = response?.Results;
 
         if (volume is null || volume.Id == 0)
         {
@@ -129,7 +139,7 @@ public sealed class ComicVineClient : IComicVineClient
             url,
             cancellationToken);
 
-        var issue = response.Results;
+        var issue = response?.Results;
 
         if (issue is null || issue.Id == 0)
         {
@@ -153,7 +163,7 @@ public sealed class ComicVineClient : IComicVineClient
     {
         if (string.IsNullOrWhiteSpace(apiDetailUrl))
         {
-            throw new ArgumentException("Comic Vine API detail URL is required.", nameof(apiDetailUrl));
+            throw new ValidationException("Comic Vine API detail URL is required.");
         }
 
         if (string.IsNullOrWhiteSpace(_options.ApiKey))
@@ -163,47 +173,114 @@ public sealed class ComicVineClient : IComicVineClient
 
         if (!Uri.TryCreate(apiDetailUrl, UriKind.Absolute, out var uri))
         {
-            throw new ArgumentException("Comic Vine API detail URL is not valid.", nameof(apiDetailUrl));
+            throw new ValidationException("Comic Vine API detail URL is not valid.");
         }
 
-        if (!string.Equals(uri.Host, "comicvine.gamespot.com", StringComparison.OrdinalIgnoreCase))
+        // The URL comes from the client, and the API key is appended to it, so it must be
+        // pinned to the real Comic Vine API: HTTPS only (the key must never travel in clear
+        // text), exact host, default port, no credentials and the /api/ path.
+        if (uri.Scheme != Uri.UriSchemeHttps)
         {
-            throw new ArgumentException("Comic Vine API detail URL must belong to Comic Vine.", nameof(apiDetailUrl));
+            throw new ValidationException("Comic Vine API detail URL must use HTTPS.");
+        }
+
+        if (!string.Equals(uri.Host, "comicvine.gamespot.com", StringComparison.OrdinalIgnoreCase)
+            || !uri.IsDefaultPort
+            || !string.IsNullOrEmpty(uri.UserInfo))
+        {
+            throw new ValidationException("Comic Vine API detail URL must belong to Comic Vine.");
         }
 
         if (!uri.AbsolutePath.StartsWith("/api/", StringComparison.OrdinalIgnoreCase))
         {
-            throw new ArgumentException("Comic Vine API detail URL must point to the Comic Vine API.", nameof(apiDetailUrl));
+            throw new ValidationException("Comic Vine API detail URL must point to the Comic Vine API.");
         }
 
-        var separator = apiDetailUrl.Contains('?', StringComparison.Ordinal)
-            ? "&"
-            : "?";
+        // Rebuild from the parsed URI instead of reusing the raw string, so the request
+        // that is sent is exactly the one that was validated (no fragment, normalized path).
+        var baseUrl = uri.GetLeftPart(UriPartial.Path);
 
-        return $"{apiDetailUrl}{separator}api_key={Uri.EscapeDataString(_options.ApiKey)}&format=json";
+        var separator = string.IsNullOrEmpty(uri.Query)
+            ? "?"
+            : "&";
+
+        return $"{baseUrl}{uri.Query}{separator}api_key={Uri.EscapeDataString(_options.ApiKey)}&format=json";
     }
 
-    private async Task<T> GetComicVineResponseAsync<T>(
+    // Returns null when Comic Vine answers 404. Transient failures are retried by the
+    // resilience pipeline configured for this HttpClient; whatever still fails afterwards
+    // (timeouts, 5xx, 429, open circuit, invalid responses) becomes
+    // ExternalServiceUnavailableException so callers and the API can treat it as a 503.
+    // https://comicvine.gamespot.com/api/documentation: status_code 1 = OK, 101 = Object Not Found.
+    private const int StatusOk = 1;
+    private const int StatusObjectNotFound = 101;
+
+    private async Task<T?> GetComicVineResponseAsync<T>(
         string url,
         CancellationToken cancellationToken)
+        where T : class
     {
         if (string.IsNullOrWhiteSpace(_options.ApiKey))
         {
             throw new InvalidOperationException("Comic Vine API key is not configured.");
         }
 
-        var response = await _httpClient.GetAsync(url, cancellationToken);
-        response.EnsureSuccessStatusCode();
-
-        var comicVineResponse = await response.Content.ReadFromJsonAsync<T>(
-            cancellationToken: cancellationToken);
-
-        if (comicVineResponse is null)
+        try
         {
-            throw new InvalidOperationException("Comic Vine returned an empty response.");
-        }
+            using var response = await _httpClient.GetAsync(url, cancellationToken);
 
-        return comicVineResponse;
+            if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                return null;
+            }
+
+            response.EnsureSuccessStatusCode();
+
+            // Comic Vine answers HTTP 200 even for errors and reports the outcome in
+            // status_code. "Object Not Found" comes with results as an empty array, which
+            // must mean "does not exist", not "provider down".
+            using var document = await JsonDocument.ParseAsync(
+                await response.Content.ReadAsStreamAsync(cancellationToken),
+                cancellationToken: cancellationToken);
+
+            if (document.RootElement.TryGetProperty("status_code", out var statusCode)
+                && statusCode.ValueKind == JsonValueKind.Number)
+            {
+                switch (statusCode.GetInt32())
+                {
+                    case StatusOk:
+                        break;
+                    case StatusObjectNotFound:
+                        return null;
+                    default:
+                        // Invalid API key, malformed URL, rate limit...: nothing the caller can fix.
+                        var error = document.RootElement.TryGetProperty("error", out var errorText)
+                            ? errorText.GetString()
+                            : null;
+
+                        throw new JsonException(
+                            $"Comic Vine returned status_code {statusCode.GetInt32()}: {error}");
+                }
+            }
+
+            return document.RootElement.Deserialize<T>()
+                ?? throw new JsonException("Comic Vine returned an empty response.");
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // The caller cancelled (request aborted): not a provider failure.
+            throw;
+        }
+        catch (Exception exception) when (exception is HttpRequestException
+                                              or OperationCanceledException
+                                              or TimeoutRejectedException
+                                              or BrokenCircuitException
+                                              or JsonException)
+        {
+            throw new ExternalServiceUnavailableException(
+                "Comic Vine is not available right now. Please try again later.",
+                exception);
+        }
     }
 
     private static string? GetBestImageUrl(ComicVineImageResource? image)

@@ -21,6 +21,8 @@ public sealed class ForgotPasswordHandler
     private readonly ITokenHasher _tokenHasher;
     private readonly IAuthLinkBuilder _authLinkBuilder;
     private readonly IEmailSender _emailSender;
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly TimeProvider _timeProvider;
 
     public ForgotPasswordHandler(
         IUserRepository userRepository,
@@ -28,7 +30,9 @@ public sealed class ForgotPasswordHandler
         ITokenGenerator tokenGenerator,
         ITokenHasher tokenHasher,
         IAuthLinkBuilder authLinkBuilder,
-        IEmailSender emailSender)
+        IEmailSender emailSender,
+        IUnitOfWork unitOfWork,
+        TimeProvider timeProvider)
     {
         _userRepository = userRepository;
         _userTokenRepository = userTokenRepository;
@@ -36,6 +40,8 @@ public sealed class ForgotPasswordHandler
         _tokenHasher = tokenHasher;
         _authLinkBuilder = authLinkBuilder;
         _emailSender = emailSender;
+        _unitOfWork = unitOfWork;
+        _timeProvider = timeProvider;
     }
 
     public async Task<ForgotPasswordResult> HandleAsync(
@@ -65,10 +71,10 @@ public sealed class ForgotPasswordHandler
             userId: user.Id,
             tokenHash: resetTokenHash,
             type: UserTokenType.PasswordReset,
-            expiresAt: DateTimeOffset.UtcNow.Add(PasswordResetTokenLifetime));
+            expiresAt: _timeProvider.GetUtcNow().Add(PasswordResetTokenLifetime));
 
         await _userTokenRepository.AddAsync(userToken, cancellationToken);
-        await _userTokenRepository.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         var resetPasswordUrl = _authLinkBuilder.BuildPasswordResetUrl(resetToken);
 

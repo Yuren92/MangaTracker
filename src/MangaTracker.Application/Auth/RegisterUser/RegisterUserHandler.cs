@@ -19,6 +19,8 @@ public sealed class RegisterUserHandler
     private readonly ITokenHasher _tokenHasher;
     private readonly IAuthLinkBuilder _authLinkBuilder;
     private readonly IEmailSender _emailSender;
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly TimeProvider _timeProvider;
 
     public RegisterUserHandler(
         IUserRepository userRepository,
@@ -27,7 +29,9 @@ public sealed class RegisterUserHandler
         ITokenGenerator tokenGenerator,
         ITokenHasher tokenHasher,
         IAuthLinkBuilder authLinkBuilder,
-        IEmailSender emailSender)
+        IEmailSender emailSender,
+        IUnitOfWork unitOfWork,
+        TimeProvider timeProvider)
     {
         _userRepository = userRepository;
         _userTokenRepository = userTokenRepository;
@@ -36,6 +40,8 @@ public sealed class RegisterUserHandler
         _tokenHasher = tokenHasher;
         _authLinkBuilder = authLinkBuilder;
         _emailSender = emailSender;
+        _unitOfWork = unitOfWork;
+        _timeProvider = timeProvider;
     }
 
     public async Task<RegisterUserResult> HandleAsync(
@@ -43,8 +49,11 @@ public sealed class RegisterUserHandler
         CancellationToken cancellationToken = default)
     {
         var normalizedEmail = EmailValidator.ValidateAndNormalize(command.Email);
-
         PasswordValidator.Validate(command.Password);
+
+        // Hashed up front on every path: hashing is the slow step, so skipping it for
+        // existing accounts would make them answer faster and give them away.
+        var passwordHash = _passwordHasher.HashPassword(command.Password);
 
         var existingUser = await _userRepository.GetByEmailAsync(
             normalizedEmail,
@@ -52,10 +61,9 @@ public sealed class RegisterUserHandler
 
         if (existingUser is not null)
         {
-            throw new ConflictException("Email is already registered.");
+            await NotifyExistingAccountAsync(existingUser.Email, cancellationToken);
+            return GenericResult;
         }
-
-        var passwordHash = _passwordHasher.HashPassword(command.Password);
 
         var user = new User(
             email: normalizedEmail,
@@ -70,11 +78,21 @@ public sealed class RegisterUserHandler
             userId: user.Id,
             tokenHash: confirmationTokenHash,
             type: UserTokenType.EmailConfirmation,
-            expiresAt: DateTimeOffset.UtcNow.Add(EmailConfirmationTokenLifetime));
+            expiresAt: _timeProvider.GetUtcNow().Add(EmailConfirmationTokenLifetime));
 
         await _userTokenRepository.AddAsync(userToken, cancellationToken);
 
-        await _userRepository.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (UniqueConstraintViolationException)
+        {
+            // A concurrent registration created the account first: same outcome as above.
+            _unitOfWork.DiscardChanges();
+            await NotifyExistingAccountAsync(normalizedEmail, cancellationToken);
+            return GenericResult;
+        }
 
         var confirmationUrl = _authLinkBuilder.BuildEmailConfirmationUrl(confirmationToken);
 
@@ -83,8 +101,20 @@ public sealed class RegisterUserHandler
             confirmationUrl: confirmationUrl,
             cancellationToken: cancellationToken);
 
-        return new RegisterUserResult(
-            UserId: user.Id,
-            Email: user.Email);
+        return GenericResult;
+    }
+
+    // The response never says whether the email was already registered, so the
+    // endpoint cannot be used to find out who has an account. The owner of an existing
+    // account learns about the attempt by email instead.
+    private static readonly RegisterUserResult GenericResult = new(
+        "If this email can be used, we have sent you a message with the next steps.");
+
+    private Task NotifyExistingAccountAsync(string email, CancellationToken cancellationToken)
+    {
+        return _emailSender.SendRegistrationAttemptForExistingAccountAsync(
+            to: email,
+            forgotPasswordUrl: _authLinkBuilder.BuildForgotPasswordUrl(),
+            cancellationToken: cancellationToken);
     }
 }

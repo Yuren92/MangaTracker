@@ -4,8 +4,9 @@ namespace MangaTracker.Application.Abstractions;
 
 public interface ITomeRepository
 {
-    Task<Tome?> GetByComicVineApiDetailUrlAsync(
-        string apiDetailUrl,
+    // One query for a whole batch of issues, instead of one query per issue.
+    Task<IReadOnlyCollection<Tome>> GetByComicVineApiDetailUrlsAsync(
+        IReadOnlyCollection<string> apiDetailUrls,
         CancellationToken cancellationToken = default);
 
     Task<Tome?> GetByIdAsync(
@@ -14,9 +15,6 @@ public interface ITomeRepository
 
     Task AddAsync(
         Tome tome,
-        CancellationToken cancellationToken = default);
-
-    Task SaveChangesAsync(
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyCollection<Tome>> GetByEditionIdAsync(

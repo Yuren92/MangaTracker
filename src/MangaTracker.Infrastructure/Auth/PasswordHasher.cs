@@ -1,12 +1,13 @@
-﻿using MangaTracker.Application.Abstractions.Auth;
+using MangaTracker.Application.Abstractions.Auth;
 using MangaTracker.Domain.Entities;
-using Microsoft.AspNetCore.Identity;
+using IdentityPasswordHasher = Microsoft.AspNetCore.Identity.PasswordHasher<MangaTracker.Domain.Entities.User>;
+using IdentityResult = Microsoft.AspNetCore.Identity.PasswordVerificationResult;
 
 namespace MangaTracker.Infrastructure.Auth;
 
 public sealed class PasswordHasher : IPasswordHasher
 {
-    private readonly PasswordHasher<User> _passwordHasher = new();
+    private readonly IdentityPasswordHasher _passwordHasher = new();
 
     public string HashPassword(string password)
     {
@@ -15,7 +16,7 @@ public sealed class PasswordHasher : IPasswordHasher
             password: password);
     }
 
-    public bool VerifyPassword(
+    public PasswordVerificationResult VerifyPassword(
         string password,
         string passwordHash)
     {
@@ -24,7 +25,11 @@ public sealed class PasswordHasher : IPasswordHasher
             hashedPassword: passwordHash,
             providedPassword: password);
 
-        return result is PasswordVerificationResult.Success
-            or PasswordVerificationResult.SuccessRehashNeeded;
+        return result switch
+        {
+            IdentityResult.Success => PasswordVerificationResult.Success,
+            IdentityResult.SuccessRehashNeeded => PasswordVerificationResult.SuccessRehashNeeded,
+            _ => PasswordVerificationResult.Failed
+        };
     }
 }

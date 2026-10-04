@@ -18,9 +18,6 @@ public interface IUserCollectionRepository
         UserCollection userCollection,
         CancellationToken cancellationToken = default);
 
-    Task SaveChangesAsync(
-        CancellationToken cancellationToken = default);
-
     Task<IReadOnlyCollection<UserCollection>> GetAllByUserIdAsync(
     Guid userId,
     CancellationToken cancellationToken = default);

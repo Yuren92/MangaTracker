@@ -42,23 +42,4 @@ public sealed class EditionRepository : IEditionRepository
     {
         await _dbContext.Editions.AddAsync(edition, cancellationToken);
     }
-
-    public Task SaveChangesAsync(CancellationToken cancellationToken = default)
-    {
-        return _dbContext.SaveChangesAsync(cancellationToken);
-    }
-
-    public Task<Edition?> GetByComicVineApiDetailUrlWithTomesAsync(
-        string apiDetailUrl,
-        CancellationToken cancellationToken = default)
-    {
-        var normalizedUrl = apiDetailUrl.Trim();
-
-        return _dbContext.Editions
-            .Include(edition => edition.Series)
-            .Include(edition => edition.Tomes)
-            .FirstOrDefaultAsync(
-                edition => edition.ComicVineApiDetailUrl == normalizedUrl,
-                cancellationToken);
-    }
 }

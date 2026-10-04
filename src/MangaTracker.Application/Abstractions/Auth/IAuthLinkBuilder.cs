@@ -5,4 +5,6 @@ public interface IAuthLinkBuilder
     string BuildEmailConfirmationUrl(string token);
 
     string BuildPasswordResetUrl(string token);
+
+    string BuildForgotPasswordUrl();
 }

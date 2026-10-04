@@ -15,4 +15,11 @@ public interface IEmailSender
     Task SendWelcomeAsync(
         string to,
         CancellationToken cancellationToken = default);
+
+    // Sent instead of a confirmation when someone registers with an email that already
+    // has an account, so the API response can stay the same in both cases.
+    Task SendRegistrationAttemptForExistingAccountAsync(
+        string to,
+        string forgotPasswordUrl,
+        CancellationToken cancellationToken = default);
 }

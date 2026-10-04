@@ -17,7 +17,7 @@ namespace MangaTracker.Infrastructure.Persistence.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.7")
+                .HasAnnotation("ProductVersion", "10.0.12")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -176,8 +176,7 @@ namespace MangaTracker.Infrastructure.Persistence.Migrations
                     b.HasIndex("ComicVineIssueId")
                         .IsUnique();
 
-                    b.HasIndex("EditionId", "IssueNumber")
-                        .IsUnique();
+                    b.HasIndex("EditionId", "IssueNumber");
 
                     b.ToTable("Tomes", (string)null);
                 });
@@ -206,6 +205,11 @@ namespace MangaTracker.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("SecurityStamp")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
 
                     b.HasKey("Id");
 

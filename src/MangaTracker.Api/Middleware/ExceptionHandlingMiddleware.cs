@@ -47,6 +47,18 @@ public sealed class ExceptionHandlingMiddleware
                 StatusCodes.Status409Conflict,
                 "Conflict");
         }
+        catch (ExternalServiceUnavailableException exception)
+        {
+            // The cause stays in the logs; the client only learns it can retry later.
+            _logger.LogWarning(exception.InnerException, "External service unavailable: {Message}", exception.Message);
+            context.Response.Headers.RetryAfter = "30";
+
+            await HandleExceptionAsync(
+                context,
+                exception,
+                StatusCodes.Status503ServiceUnavailable,
+                "Service unavailable");
+        }
         catch (DomainException exception)
         {
             await HandleExceptionAsync(
@@ -68,7 +80,6 @@ public sealed class ExceptionHandlingMiddleware
         string title)
     {
         context.Response.StatusCode = statusCode;
-        context.Response.ContentType = "application/problem+json";
 
         var problemDetails = new ProblemDetails
         {
@@ -77,7 +88,8 @@ public sealed class ExceptionHandlingMiddleware
             Detail = exception.Message
         };
 
-        await context.Response.WriteAsJsonAsync(problemDetails);
+        // WriteAsJsonAsync would otherwise set application/json and drop the ProblemDetails type.
+        await context.Response.WriteAsJsonAsync(problemDetails, options: null, contentType: "application/problem+json");
     }
 
     private async Task HandleUnexpectedExceptionAsync(
@@ -87,7 +99,6 @@ public sealed class ExceptionHandlingMiddleware
         _logger.LogError(exception, "An unexpected error occurred.");
 
         context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-        context.Response.ContentType = "application/problem+json";
 
         var problemDetails = new ProblemDetails
         {
@@ -96,6 +107,7 @@ public sealed class ExceptionHandlingMiddleware
             Detail = "An unexpected error occurred."
         };
 
-        await context.Response.WriteAsJsonAsync(problemDetails);
+        // WriteAsJsonAsync would otherwise set application/json and drop the ProblemDetails type.
+        await context.Response.WriteAsJsonAsync(problemDetails, options: null, contentType: "application/problem+json");
     }
 }

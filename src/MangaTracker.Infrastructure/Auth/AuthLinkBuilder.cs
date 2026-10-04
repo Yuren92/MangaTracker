@@ -21,4 +21,9 @@ public sealed class AuthLinkBuilder : IAuthLinkBuilder
     {
         return $"{_options.FrontendBaseUrl}/reset-password?token={Uri.EscapeDataString(token)}";
     }
+
+    public string BuildForgotPasswordUrl()
+    {
+        return $"{_options.FrontendBaseUrl}/forgot-password";
+    }
 }

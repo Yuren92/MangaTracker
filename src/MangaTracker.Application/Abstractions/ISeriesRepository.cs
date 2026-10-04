@@ -11,7 +11,4 @@ public interface ISeriesRepository
     Task AddAsync(
         Series series,
         CancellationToken cancellationToken = default);
-
-    Task SaveChangesAsync(
-        CancellationToken cancellationToken = default);
 }

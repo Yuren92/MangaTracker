@@ -12,17 +12,20 @@ public sealed class ConfirmEmailHandler
     private readonly IUserTokenRepository _userTokenRepository;
     private readonly ITokenHasher _tokenHasher;
     private readonly IEmailSender _emailSender;
+    private readonly IUnitOfWork _unitOfWork;
 
     public ConfirmEmailHandler(
         IUserRepository userRepository,
         IUserTokenRepository userTokenRepository,
         ITokenHasher tokenHasher,
-        IEmailSender emailSender)
+        IEmailSender emailSender,
+        IUnitOfWork unitOfWork)
     {
         _userRepository = userRepository;
         _userTokenRepository = userTokenRepository;
         _tokenHasher = tokenHasher;
         _emailSender = emailSender;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<ConfirmEmailResult> HandleAsync(
@@ -58,7 +61,7 @@ public sealed class ConfirmEmailHandler
         user.ConfirmEmail();
         userToken.MarkAsUsed();
 
-        await _userRepository.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         await _emailSender.SendWelcomeAsync(
             user.Email,

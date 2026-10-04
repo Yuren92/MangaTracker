@@ -8,8 +8,8 @@ using MangaTracker.Application.Auth.RegisterUser;
 using MangaTracker.Application.Auth.ResendConfirmationEmail;
 using MangaTracker.Application.Auth.ResetPassword;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.AspNetCore.Mvc;
+using MangaTracker.Api.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
 
 namespace MangaTracker.Api.Controllers;
@@ -50,7 +50,7 @@ public sealed class AuthController : ControllerBase
         _changePasswordHandler = changePasswordHandler;
     }
 
-    [EnableRateLimiting("auth-sensitive")]
+    [EnableRateLimiting(RateLimitPolicies.AuthSensitive)]
     [HttpPost("register")]
     public async Task<ActionResult<RegisterUserResult>> Register(
         RegisterUserRequest request,
@@ -64,13 +64,11 @@ public sealed class AuthController : ControllerBase
             command,
             cancellationToken);
 
-        return CreatedAtAction(
-            nameof(Register),
-            new { id = result.UserId },
-            result);
+        // 202 for new and existing emails alike, so the status code reveals nothing either.
+        return Accepted(result);
     }
 
-    [EnableRateLimiting("auth-sensitive")]
+    [EnableRateLimiting(RateLimitPolicies.AuthSensitive)]
     [HttpPost("login")]
     public async Task<ActionResult<LoginUserResult>> Login(
         LoginUserRequest request,
@@ -99,7 +97,7 @@ public sealed class AuthController : ControllerBase
         return Ok(result);
     }
 
-    [EnableRateLimiting("auth-sensitive")]
+    [EnableRateLimiting(RateLimitPolicies.AuthSensitive)]
     [HttpPost("confirm-email")]
     public async Task<ActionResult<ConfirmEmailResult>> ConfirmEmail(
     ConfirmEmailRequest request,
@@ -115,7 +113,7 @@ public sealed class AuthController : ControllerBase
         return Ok(result);
     }
 
-    [EnableRateLimiting("auth-sensitive")]
+    [EnableRateLimiting(RateLimitPolicies.AuthSensitive)]
     [HttpPost("resend-confirmation-email")]
     public async Task<ActionResult<ResendConfirmationEmailResult>> ResendConfirmationEmail(
     ResendConfirmationEmailRequest request,
@@ -131,7 +129,7 @@ public sealed class AuthController : ControllerBase
         return Ok(result);
     }
 
-    [EnableRateLimiting("auth-sensitive")]
+    [EnableRateLimiting(RateLimitPolicies.AuthSensitive)]
     [HttpPost("forgot-password")]
     public async Task<ActionResult<ForgotPasswordResult>> ForgotPassword(
     ForgotPasswordRequest request,
@@ -147,7 +145,7 @@ public sealed class AuthController : ControllerBase
         return Ok(result);
     }
 
-    [EnableRateLimiting("auth-sensitive")]
+    [EnableRateLimiting(RateLimitPolicies.AuthSensitive)]
     [HttpPost("reset-password")]
     public async Task<ActionResult<ResetPasswordResult>> ResetPassword(
     ResetPasswordRequest request,

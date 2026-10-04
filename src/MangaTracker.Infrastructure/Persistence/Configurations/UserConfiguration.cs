@@ -25,5 +25,9 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
 
         builder.Property(user => user.CreatedAt)
             .IsRequired();
+
+        builder.Property(user => user.SecurityStamp)
+            .IsRequired()
+            .HasMaxLength(64);
     }
 }

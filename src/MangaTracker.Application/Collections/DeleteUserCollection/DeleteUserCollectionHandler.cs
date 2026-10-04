@@ -6,11 +6,14 @@ namespace MangaTracker.Application.Collections.DeleteUserCollection;
 public sealed class DeleteUserCollectionHandler
 {
     private readonly IUserCollectionRepository _userCollectionRepository;
+    private readonly IUnitOfWork _unitOfWork;
 
     public DeleteUserCollectionHandler(
-        IUserCollectionRepository userCollectionRepository)
+        IUserCollectionRepository userCollectionRepository,
+        IUnitOfWork unitOfWork)
     {
         _userCollectionRepository = userCollectionRepository;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<DeleteUserCollectionResult> HandleAsync(
@@ -39,7 +42,7 @@ public sealed class DeleteUserCollectionHandler
 
         _userCollectionRepository.Remove(collection);
 
-        await _userCollectionRepository.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return new DeleteUserCollectionResult(
             CollectionId: command.CollectionId,

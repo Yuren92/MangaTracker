@@ -3,13 +3,17 @@ using MangaTracker.Api.Middleware;
 using MangaTracker.Application;
 using MangaTracker.Application.Abstractions.Auth;
 using MangaTracker.Infrastructure;
+using MangaTracker.Infrastructure.Auth;
+using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using System.Net;
 using System.Text;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
 using MangaTracker.Api.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,105 +22,98 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
-builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddInfrastructure(builder.Configuration, builder.Environment);
 builder.Services.AddApplication();
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
-var jwtIssuer = builder.Configuration["Jwt:Issuer"];
-var jwtAudience = builder.Configuration["Jwt:Audience"];
-var jwtSecretKey = builder.Configuration["Jwt:SecretKey"];
-
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+    .AddJwtBearer();
+
+// Token validation reads the same validated JwtOptions used to issue tokens,
+// so issuing and validating can never drift apart.
+builder.Services
+    .AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+    .Configure<IOptions<JwtOptions>>((options, jwtOptions) =>
     {
+        var jwt = jwtOptions.Value;
+
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
-            ValidIssuer = jwtIssuer,
+            ValidIssuer = jwt.Issuer,
 
             ValidateAudience = true,
-            ValidAudience = jwtAudience,
+            ValidAudience = jwt.Audience,
 
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(jwtSecretKey!)),
+                Encoding.UTF8.GetBytes(jwt.SecretKey)),
 
             ValidateLifetime = true,
             ClockSkew = TimeSpan.FromMinutes(1)
+        };
+
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = SecurityStampValidator.ValidateAsync
         };
     });
 
 builder.Services.AddAuthorization();
 
+// Only the proxies listed in configuration are trusted to report the client IP through
+// X-Forwarded-For. Trusting the header from anyone would let a caller pick a new
+// "IP" on every request and bypass the per-IP limits on anonymous endpoints.
+var trustedProxies = builder.Configuration
+    .GetSection("ForwardedHeaders:KnownProxies")
+    .Get<string[]>() ?? [];
+
+var trustedNetworks = builder.Configuration
+    .GetSection("ForwardedHeaders:KnownNetworks")
+    .Get<string[]>() ?? [];
+
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    // Empty KnownProxies and KnownIPNetworks lists mean "trust every proxy" in ASP.NET,
+    // so with nothing configured the headers are ignored altogether.
+    if (trustedProxies.Length == 0 && trustedNetworks.Length == 0)
+    {
+        options.ForwardedHeaders = ForwardedHeaders.None;
+        return;
+    }
+
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+
+    // Replace the default (loopback) with exactly the configured proxies.
+    options.KnownProxies.Clear();
+    options.KnownIPNetworks.Clear();
+
+    foreach (var proxy in trustedProxies)
+    {
+        options.KnownProxies.Add(IPAddress.Parse(proxy));
+    }
+
+    foreach (var network in trustedNetworks)
+    {
+        options.KnownIPNetworks.Add(System.Net.IPNetwork.Parse(network));
+    }
+});
+
 builder.Services.AddRateLimiter(options =>
 {
-    options.AddPolicy(RateLimitPolicies.AuthSensitive, context =>
-    {
-        var ipAddress = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+    // Requests per minute; overridable per policy, e.g. RateLimiting:auth-sensitive=5.
+    var limits = builder.Configuration.GetSection("RateLimiting");
 
-        return RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: ipAddress,
-            factory: _ => new FixedWindowRateLimiterOptions
-            {
-                PermitLimit = 5,
-                Window = TimeSpan.FromMinutes(1),
-                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-                QueueLimit = 0
-            });
-    });
-
-    options.AddPolicy(RateLimitPolicies.AuthNormal, context =>
-    {
-        var ipAddress = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-
-        return RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: ipAddress,
-            factory: _ => new FixedWindowRateLimiterOptions
-            {
-                PermitLimit = 20,
-                Window = TimeSpan.FromMinutes(1),
-                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-                QueueLimit = 0
-            });
-    });
-
-    options.AddPolicy(RateLimitPolicies.ExternalApi, context =>
-    {
-        var ipAddress = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-
-        return RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: ipAddress,
-            factory: _ => new FixedWindowRateLimiterOptions
-            {
-                PermitLimit = 30,
-                Window = TimeSpan.FromMinutes(1),
-                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-                QueueLimit = 0
-            });
-    });
-
-    options.AddPolicy(RateLimitPolicies.ComicVineImport, context =>
-    {
-        var ipAddress = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-
-        return RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: ipAddress,
-            factory: _ => new FixedWindowRateLimiterOptions
-            {
-                PermitLimit = 5,
-                Window = TimeSpan.FromMinutes(1),
-                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-                QueueLimit = 0
-            });
-    });
+    AddFixedWindowPolicy(options, RateLimitPolicies.AuthSensitive, limits.GetValue(RateLimitPolicies.AuthSensitive, 5));
+    AddFixedWindowPolicy(options, RateLimitPolicies.ExternalApi, limits.GetValue(RateLimitPolicies.ExternalApi, 30));
+    AddFixedWindowPolicy(options, RateLimitPolicies.ComicVineImport, limits.GetValue(RateLimitPolicies.ComicVineImport, 5));
 
     options.OnRejected = async (context, cancellationToken) =>
     {
         context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
-        context.HttpContext.Response.ContentType = "application/problem+json";
 
         var problemDetails = new ProblemDetails
         {
@@ -127,6 +124,8 @@ builder.Services.AddRateLimiter(options =>
 
         await context.HttpContext.Response.WriteAsJsonAsync(
             problemDetails,
+            options: null,
+            contentType: "application/problem+json",
             cancellationToken);
     };
 });
@@ -157,15 +156,19 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+// Must run first so every later component sees the real client IP and scheme.
+app.UseForwardedHeaders();
+
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 app.UseHttpsRedirection();
 
 app.UseCors("frontend");
 
-app.UseRateLimiter();
-
+// Authentication runs before rate limiting so authenticated endpoints can be
+// limited per user instead of per IP.
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapHealthChecks("/health");
@@ -174,3 +177,16 @@ app.MapControllers();
 
 app.Run();
 
+static void AddFixedWindowPolicy(RateLimiterOptions options, string policyName, int permitLimit)
+{
+    options.AddPolicy(policyName, context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: RateLimitPartitionKey.For(context),
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = permitLimit,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            }));
+}

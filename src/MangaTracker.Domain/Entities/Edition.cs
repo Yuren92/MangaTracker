@@ -85,7 +85,8 @@ public sealed class Edition
         string? description,
         string? imageUrl,
         string? siteDetailUrl,
-        int? issueCount)
+        int? issueCount,
+        DateTimeOffset syncedAt)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -99,7 +100,24 @@ public sealed class Edition
         ImageUrl = NormalizeOptionalText(imageUrl);
         SiteDetailUrl = NormalizeOptionalText(siteDetailUrl);
         IssueCount = NormalizeIssueCount(issueCount);
-        LastSyncedAt = DateTimeOffset.UtcNow;
+        LastSyncedAt = syncedAt;
+    }
+
+    // Records a sync attempt that could not refresh the data (volume missing or
+    // provider error), so the edition waits for the cooldown like any other instead
+    // of staying first in the sync queue and blocking the rest.
+    public void MarkSyncAttempted(DateTimeOffset attemptedAt)
+    {
+        LastSyncedAt = attemptedAt;
+    }
+
+    // Editions that were never synced count from their import date.
+    public DateTimeOffset LastRefreshedAt => LastSyncedAt ?? ImportedAt;
+
+    // True when every issue Comic Vine reports for the volume has a tome stored.
+    public bool HasAllTomes(int storedTomes)
+    {
+        return IssueCount is int issueCount && storedTomes >= issueCount;
     }
 
     private static string? NormalizeOptionalText(string? value)

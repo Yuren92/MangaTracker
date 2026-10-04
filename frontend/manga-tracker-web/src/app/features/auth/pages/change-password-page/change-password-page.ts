@@ -3,6 +3,7 @@ import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angula
 import { RouterLink } from '@angular/router';
 import { getApiErrorMessage } from '../../../../core/http/api-error';
 import { AuthApi } from '../../services/auth-api';
+import { AuthState } from '../../../../core/auth/auth-state';
 import { AppAlert } from '../../../../shared/components/app-alert/app-alert';
 
 @Component({
@@ -14,6 +15,7 @@ import { AppAlert } from '../../../../shared/components/app-alert/app-alert';
 export class ChangePasswordPage {
   private readonly formBuilder = inject(NonNullableFormBuilder);
   private readonly authApi = inject(AuthApi);
+  private readonly authState = inject(AuthState);
 
   readonly isSubmitting = signal(false);
   readonly errorMessage = signal<string | null>(null);
@@ -38,6 +40,8 @@ export class ChangePasswordPage {
 
     this.authApi.changePassword(currentPassword, newPassword).subscribe({
       next: response => {
+        // Keep this session alive with the new token; every other session is now revoked.
+        this.authState.setAccessToken(response.accessToken);
         this.successMessage.set(response.message);
         this.form.reset();
         this.isSubmitting.set(false);

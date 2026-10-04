@@ -8,7 +8,8 @@ import {
   LoginResponse,
   MessageResponse,
   RegisterRequest,
-  RegisterResponse
+  RegisterResponse,
+  ChangePasswordResponse
 } from '../models/auth.models';
 
 @Injectable({
@@ -70,7 +71,7 @@ export class AuthApi {
   }
 
   changePassword(currentPassword: string, newPassword: string) {
-    return this.http.post<MessageResponse>(
+    return this.http.post<ChangePasswordResponse>(
       `${this.apiUrl}/api/auth/change-password`,
       {
         currentPassword,

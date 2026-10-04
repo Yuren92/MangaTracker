@@ -78,6 +78,28 @@ public sealed class SmtpEmailSender : IEmailSender
         return SendAsync(to, subject, body, cancellationToken);
     }
 
+    public Task SendRegistrationAttemptForExistingAccountAsync(
+        string to,
+        string forgotPasswordUrl,
+        CancellationToken cancellationToken = default)
+    {
+        var subject = "Intento de registro en Manga Tracker";
+
+        var body = $"""
+        <h1>Ya tienes una cuenta</h1>
+        <p>Alguien ha intentado crear una cuenta de Manga Tracker con este email, pero ya está registrado.</p>
+        <p>Si has sido tú y no recuerdas tu contraseña, puedes restablecerla aquí:</p>
+        <p>
+            <a href="{WebUtility.HtmlEncode(forgotPasswordUrl)}">
+                Restablecer contraseña
+            </a>
+        </p>
+        <p>Si no has sido tú, puedes ignorar este correo: tu cuenta no ha cambiado.</p>
+        """;
+
+        return SendAsync(to, subject, body, cancellationToken);
+    }
+
     private async Task SendAsync(
         string to,
         string subject,

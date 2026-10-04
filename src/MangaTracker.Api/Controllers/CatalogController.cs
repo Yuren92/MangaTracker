@@ -1,5 +1,6 @@
-﻿using MangaTracker.Api.RateLimiting;
-using MangaTracker.Application.Abstractions;
+using MangaTracker.Api.RateLimiting;
+using MangaTracker.Application.Catalog.PreviewComicVineVolume;
+using MangaTracker.Application.Catalog.SearchCatalog;
 using MangaTracker.Application.ComicVine.Dtos;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -12,11 +13,15 @@ namespace MangaTracker.Api.Controllers;
 [Authorize]
 public sealed class CatalogController : ControllerBase
 {
-    private readonly IComicVineClient _comicVineClient;
+    private readonly SearchCatalogHandler _searchCatalogHandler;
+    private readonly PreviewComicVineVolumeHandler _previewComicVineVolumeHandler;
 
-    public CatalogController(IComicVineClient comicVineClient)
+    public CatalogController(
+        SearchCatalogHandler searchCatalogHandler,
+        PreviewComicVineVolumeHandler previewComicVineVolumeHandler)
     {
-        _comicVineClient = comicVineClient;
+        _searchCatalogHandler = searchCatalogHandler;
+        _previewComicVineVolumeHandler = previewComicVineVolumeHandler;
     }
 
     [EnableRateLimiting(RateLimitPolicies.ExternalApi)]
@@ -26,14 +31,8 @@ public sealed class CatalogController : ControllerBase
         [FromQuery] int limit = 10,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(query))
-        {
-            return BadRequest("Search query is required.");
-        }
-
-        var results = await _comicVineClient.SearchVolumesAsync(
-            query,
-            limit,
+        var results = await _searchCatalogHandler.HandleAsync(
+            new SearchCatalogQuery(query, limit),
             cancellationToken);
 
         return Ok(results);
@@ -42,22 +41,12 @@ public sealed class CatalogController : ControllerBase
     [EnableRateLimiting(RateLimitPolicies.ExternalApi)]
     [HttpPost("comic-vine/volumes/preview")]
     public async Task<ActionResult<ComicVineVolumeDetailDto>> PreviewComicVineVolume(
-    [FromBody] ComicVineVolumePreviewRequest request,
-    CancellationToken cancellationToken = default)
+        [FromBody] ComicVineVolumePreviewRequest request,
+        CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(request.ApiDetailUrl))
-        {
-            return BadRequest("Comic Vine volume API detail URL is required.");
-        }
-
-        var volume = await _comicVineClient.GetVolumeByApiDetailUrlAsync(
-            request.ApiDetailUrl,
+        var volume = await _previewComicVineVolumeHandler.HandleAsync(
+            new PreviewComicVineVolumeQuery(request.ApiDetailUrl),
             cancellationToken);
-
-        if (volume is null)
-        {
-            return NotFound();
-        }
 
         return Ok(volume);
     }

@@ -48,4 +48,16 @@ public sealed class ConsoleEmailSender : IEmailSender
 
         return Task.CompletedTask;
     }
+
+    public Task SendRegistrationAttemptForExistingAccountAsync(
+        string to,
+        string forgotPasswordUrl,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation(
+            "Registration attempt for existing account {Email}",
+            to);
+
+        return Task.CompletedTask;
+    }
 }
