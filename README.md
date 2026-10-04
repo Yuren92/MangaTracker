@@ -1,40 +1,40 @@
 # Manga Tracker
 
-Manga Tracker es una aplicación web full-stack para gestionar una colección física de manga.
+[![CI](https://github.com/Yuren92/MangaTracker/actions/workflows/ci.yml/badge.svg)](https://github.com/Yuren92/MangaTracker/actions/workflows/ci.yml)
+![.NET 10](https://img.shields.io/badge/.NET-10-512BD4)
+![Angular 21](https://img.shields.io/badge/Angular-21-DD0031)
+![SQL Server](https://img.shields.io/badge/SQL%20Server-EF%20Core%2010-CC2927)
 
-La aplicación permite buscar series y ediciones usando Comic Vine, importar una edición concreta a tu colección personal, marcar qué tomos tienes comprados y consultar qué tomos te faltan. El objetivo del proyecto no es solo construir una aplicación CRUD, sino demostrar una arquitectura limpia, mantenible y cercana a un proyecto real: autenticación, integración con APIs externas, sincronización de datos, gestión de errores, envío real de correos y frontend moderno con Angular.
+Aplicación web para llevar una colección física de manga: buscas una edición en Comic Vine, la importas con todos sus tomos, marcas los que tienes y ves de un vistazo los que te faltan. Cuando la editorial publica un tomo nuevo, la colección se sincroniza sola y el tomo aparece como pendiente.
 
-## Demo
+Es un proyecto personal con el que quería practicar lo que no aparece en un CRUD: autenticación propia con revocación de sesiones, una integración externa que falla a mitad, concurrencia entre usuarios, y una pirámide de tests completa con CI.
 
-* Frontend: https://manga-tracker-teal.vercel.app
-* API: https://mangatracker.runasp.net
-* Repositorio: https://github.com/Yuren92/MangaTracker
+**Demo:** [manga-tracker-teal.vercel.app](https://manga-tracker-teal.vercel.app) · **API:** [mangatracker.runasp.net/health](https://mangatracker.runasp.net/health)
 
-## Funcionalidades principales
+| Buscar en el catálogo | Una colección |
+| --- | --- |
+| ![Búsqueda en el catálogo de Comic Vine](docs/images/catalog-search.png) | ![Detalle de una colección con tomos comprados y pendientes](docs/images/collection-detail.png) |
+| **Vista previa antes de importar** | **Tomos pendientes de todas las colecciones** |
+| ![Vista previa de una edición](docs/images/catalog-preview.png) | ![Tomos pendientes](docs/images/pending-tomes.png) |
 
-* Registro de usuarios.
-* Confirmación de cuenta por email.
-* Login con JWT.
-* Recuperación y restablecimiento de contraseña por email.
-* Envío real de correos mediante SMTP/Brevo.
-* Búsqueda de series/ediciones en Comic Vine.
-* Vista previa de una edición antes de importarla.
-* Importación de ediciones desde Comic Vine.
-* Importación de tomos/issues asociados a una edición.
-* Gestión de colecciones personales por usuario.
-* Vista global de colecciones.
-* Vista de detalle de una colección.
-* Marcado individual de tomos como comprados o pendientes.
-* Marcado masivo de todos los tomos de una colección como comprados.
-* Vista global de tomos pendientes.
-* Marcado de tomos como comprados directamente desde la pantalla de pendientes.
-* Eliminación de colecciones del usuario.
-* Sincronización automática de colecciones con Comic Vine.
-* Control de errores centralizado con `ProblemDetails`.
-* Rate limiting en endpoints sensibles y en endpoints que consumen APIs externas.
-* Health check público.
-* Frontend responsive.
-* Tests unitarios y de integración (API real + SQL Server) para autenticación, autorización, importación y sincronización.
+Las capturas son de la aplicación real y se regeneran con Playwright (`frontend/manga-tracker-web/e2e/screenshots.spec.ts`).
+
+## Qué demuestra este proyecto
+
+* **Arquitectura por capas sin ceremonia.** Domain, Application, Infrastructure y Api con dependencias hacia el dominio; casos de uso explícitos sin MediatR; repositorios específicos, un [Unit of Work](src/MangaTracker.Infrastructure/Persistence/EfUnitOfWork.cs) y [consultas de lectura](src/MangaTracker.Infrastructure/Queries/CollectionQueries.cs) proyectadas en SQL.
+* **Seguridad pensada y probada.** Revocación de JWT al cambiar la contraseña con un [`SecurityStamp`](src/MangaTracker.Api/Auth/SecurityStampValidator.cs); tokens de un solo uso guardados como hash; sin enumeración de cuentas (misma respuesta y mismo coste); protección SSRF en el [cliente de Comic Vine](src/MangaTracker.Infrastructure/ExternalServices/ComicVine/ComicVineClient.cs); rate limiting por usuario; configuración validada al arrancar.
+* **Datos externos que fallan.** Reintentos, timeouts y circuit breaker con Polly; 404 frente a 503; importación reanudable e idempotente; importaciones simultáneas resueltas con el índice único y un reintento.
+* **Tests en tres niveles.** Unitarios, integración contra SQL Server real con `WebApplicationFactory` (autenticación, IDOR, concurrencia, caducidad de tokens) y end-to-end con Playwright. Cobertura de líneas del 80 al 91 % según el proyecto.
+* **CI que bloquea.** Build con warnings como errores, auditoría de dependencias vulnerables y tests contra un contenedor de SQL Server en cada push.
+* **Decisiones documentadas.** Lo que no se ha hecho también está razonado: [decisiones y limitaciones conocidas](#decisiones-y-limitaciones-conocidas).
+
+## Funcionalidades
+
+* Registro con confirmación por email, login, cambio y recuperación de contraseña (correos reales con Brevo).
+* Búsqueda de ediciones en Comic Vine, vista previa e importación con todos sus tomos.
+* Colecciones por usuario: marcar tomos uno a uno o todos, ver pendientes de todas las colecciones, eliminar colecciones.
+* Sincronización automática con Comic Vine para incorporar tomos nuevos.
+* API con errores `ProblemDetails`, rate limiting y health check; frontend responsive.
 
 ## Stack tecnológico
 
@@ -48,9 +48,9 @@ La aplicación permite buscar series y ediciones usando Comic Vine, importar una
 * ASP.NET Core Rate Limiting
 * ASP.NET Core Health Checks
 * SMTP para envío de correos
-* xUnit
-* FluentAssertions
-* NSubstitute
+* Microsoft.Extensions.Http.Resilience (Polly)
+* xUnit, FluentAssertions, NSubstitute
+* WebApplicationFactory contra SQL Server real
 
 ### Frontend
 
@@ -60,6 +60,8 @@ La aplicación permite buscar series y ediciones usando Comic Vine, importar una
 * Control flow moderno con `@if` / `@for`
 * TypeScript
 * SCSS
+* Vitest para tests unitarios
+* Playwright para tests end-to-end
 * Build desplegado en Vercel
 
 ### APIs externas
@@ -73,6 +75,7 @@ La aplicación permite buscar series y ediciones usando Comic Vine, importar una
 * Backend desplegado en MonsterASP.NET.
 * Base de datos SQL Server remota.
 * Frontend y API comunicados directamente por HTTPS, con CORS restringido al origen del frontend.
+* CI con GitHub Actions: build, auditoría de dependencias y tests contra SQL Server en contenedor.
 
 ## Estructura del proyecto
 
@@ -92,7 +95,20 @@ tests/
 
 ## Arquitectura
 
-El backend sigue una arquitectura por capas inspirada en Clean Architecture y DDD.
+El backend sigue una arquitectura por capas inspirada en Clean Architecture y DDD. Las dependencias apuntan hacia el dominio: Application define interfaces y Infrastructure las implementa.
+
+```mermaid
+flowchart TD
+    spa[Angular 21 en Vercel] -->|HTTPS + JWT| api[MangaTracker.Api]
+    api --> app[MangaTracker.Application]
+    api -. registra servicios .-> infra[MangaTracker.Infrastructure]
+    infra -->|implementa interfaces| app
+    app --> domain[MangaTracker.Domain]
+    infra --> domain
+    infra --> sql[(SQL Server)]
+    infra --> cv[Comic Vine API]
+    infra --> smtp[SMTP Brevo]
+```
 
 ### `MangaTracker.Domain`
 
@@ -521,22 +537,6 @@ dotnet ef migrations script --idempotent `
   --startup-project src\MangaTracker.Api\MangaTracker.Api.csproj `
   --output deploy\manga-tracker-migrations.sql
 ```
-
-## Estado del proyecto
-
-El proyecto incluye:
-
-* Aplicación funcional en producción.
-* Frontend desplegado.
-* Backend desplegado.
-* Base de datos remota.
-* Registro y login reales.
-* Confirmación de email real.
-* Recuperación de contraseña real.
-* Integración real con Comic Vine.
-* Gestión de colecciones.
-* Sincronización automática.
-* Vista responsive.
 
 ## Decisiones y limitaciones conocidas
 
