@@ -14,13 +14,18 @@
       4. GET /health until the API answers Healthy.
 
     Use -WhatIf to see what Web Deploy would change without changing anything
-    (the database step is skipped in that mode).
+    (the database step is skipped in that mode), and -SkipDatabase when the
+    migration has been applied another way.
 
     Requirements: sqlcmd and Web Deploy 3 (msdeploy.exe).
 #>
 [CmdletBinding()]
 param(
-    [switch]$WhatIf
+    [switch]$WhatIf,
+
+    # The MonsterASP database is only reachable from inside its network. When the
+    # migration is applied another way (the panel's SQL tool), skip it here.
+    [switch]$SkipDatabase
 )
 
 $ErrorActionPreference = 'Stop'
@@ -52,8 +57,8 @@ $connection = New-Object System.Data.SqlClient.SqlConnectionStringBuilder($setti
 
 # --- 1. Database --------------------------------------------------------------
 
-if ($WhatIf) {
-    Step 'Database: skipped (-WhatIf)'
+if ($WhatIf -or $SkipDatabase) {
+    Step 'Database: skipped'
 } else {
     Step "Database: applying migrations to $($connection.InitialCatalog) on $($connection.DataSource)"
     $sqlArgs = @('-S', $connection.DataSource, '-d', $connection.InitialCatalog,
