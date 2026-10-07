@@ -1,55 +1,92 @@
-using System.Diagnostics;
 using AwesomeAssertions;
 using MangaTracker.Infrastructure.ExternalServices.ComicVine;
+using ManualClock = Microsoft.Extensions.Time.Testing.FakeTimeProvider;
 
 namespace MangaTracker.Tests.Infrastructure.ComicVine;
 
+// Driven by a manual clock: time only moves when the test advances it, so the results
+// do not depend on how fast or busy the machine running the tests is.
 public sealed class ComicVineRequestGateTests
 {
+    private static readonly TimeSpan Interval = TimeSpan.FromSeconds(1);
+
+    private readonly ManualClock _clock = new();
+
     [Fact]
-    public async Task Concurrent_callers_should_be_spaced_at_least_one_interval_apart()
+    public async Task Each_caller_should_go_through_one_full_interval_after_the_previous_one()
     {
-        var interval = TimeSpan.FromMilliseconds(100);
-        var gate = new ComicVineRequestGate(TimeProvider.System, interval, maxWait: TimeSpan.FromSeconds(5));
-        var stopwatch = Stopwatch.StartNew();
+        var gate = new ComicVineRequestGate(_clock, Interval, maxWait: TimeSpan.FromSeconds(10));
 
-        var turns = await Task.WhenAll(Enumerable.Range(0, 4).Select(async _ =>
-        {
-            await gate.WaitForTurnAsync(CancellationToken.None);
-            return stopwatch.Elapsed;
-        }));
+        var first = gate.WaitForTurnAsync(CancellationToken.None);
+        var second = gate.WaitForTurnAsync(CancellationToken.None);
+        var third = gate.WaitForTurnAsync(CancellationToken.None);
 
-        var ordered = turns.Order().ToList();
-        ordered[0].Should().BeLessThan(interval, "the first caller does not wait");
+        await first.WaitAsync(TimeSpan.FromSeconds(5));
+        second.IsCompleted.Should().BeFalse("the first caller just went out");
 
-        for (var i = 1; i < ordered.Count; i++)
-        {
-            // A few milliseconds of tolerance for timer resolution.
-            (ordered[i] - ordered[i - 1]).Should().BeGreaterThan(interval - TimeSpan.FromMilliseconds(20));
-        }
+        _clock.Advance(Interval - TimeSpan.FromMilliseconds(1));
+        await Task.Yield();
+        second.IsCompleted.Should().BeFalse("a full interval has not passed yet");
+
+        _clock.Advance(TimeSpan.FromMilliseconds(1));
+        await second.WaitAsync(TimeSpan.FromSeconds(5));
+        third.IsCompleted.Should().BeFalse("the third caller waits from when the second went out");
+
+        _clock.Advance(Interval);
+        await third.WaitAsync(TimeSpan.FromSeconds(5));
     }
 
     [Fact]
-    public async Task A_caller_that_would_wait_too_long_should_fail_fast_without_taking_a_slot()
+    public async Task A_late_timer_should_not_let_the_next_caller_go_out_right_behind()
     {
-        var gate = new ComicVineRequestGate(TimeProvider.System, TimeSpan.FromSeconds(10), maxWait: TimeSpan.FromSeconds(1));
+        var gate = new ComicVineRequestGate(_clock, Interval, maxWait: TimeSpan.FromSeconds(10));
 
         await gate.WaitForTurnAsync(CancellationToken.None);
+        var second = gate.WaitForTurnAsync(CancellationToken.None);
+        var third = gate.WaitForTurnAsync(CancellationToken.None);
 
-        var act = () => gate.WaitForTurnAsync(CancellationToken.None);
+        // The clock jumps far beyond the second caller's turn, as if its timer fired late.
+        _clock.Advance(TimeSpan.FromSeconds(3));
+        await second.WaitAsync(TimeSpan.FromSeconds(5));
 
-        await act.Should().ThrowAsync<HttpRequestException>();
+        await Task.Yield();
+        third.IsCompleted.Should().BeFalse("spacing counts from when the second caller really went out");
+
+        _clock.Advance(Interval);
+        await third.WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
+    public async Task A_caller_with_too_many_requests_ahead_should_fail_fast()
+    {
+        var gate = new ComicVineRequestGate(_clock, Interval, maxWait: TimeSpan.FromSeconds(1));
+
+        await gate.WaitForTurnAsync(CancellationToken.None);
+        var second = gate.WaitForTurnAsync(CancellationToken.None);
+        var third = gate.WaitForTurnAsync(CancellationToken.None);
+        var fourth = () => gate.WaitForTurnAsync(CancellationToken.None);
+
+        // Two callers already queued means at least two intervals of waiting: over the limit.
+        await fourth.Should().ThrowAsync<HttpRequestException>();
+
+        // The rejected caller took no turn: the two queued ones still go out, a second apart.
+        _clock.Advance(Interval);
+        await second.WaitAsync(TimeSpan.FromSeconds(5));
+        _clock.Advance(Interval);
+        await third.WaitAsync(TimeSpan.FromSeconds(5));
     }
 
     [Fact]
     public async Task Waiting_should_stop_when_the_caller_cancels()
     {
-        var gate = new ComicVineRequestGate(TimeProvider.System, TimeSpan.FromSeconds(3), maxWait: TimeSpan.FromSeconds(5));
+        var gate = new ComicVineRequestGate(_clock, Interval, maxWait: TimeSpan.FromSeconds(5));
         await gate.WaitForTurnAsync(CancellationToken.None);
 
-        using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
-        var act = () => gate.WaitForTurnAsync(cancellation.Token);
+        using var cancellation = new CancellationTokenSource();
+        var waiting = gate.WaitForTurnAsync(cancellation.Token);
+        cancellation.Cancel();
 
+        var act = () => waiting;
         await act.Should().ThrowAsync<OperationCanceledException>();
     }
 }
