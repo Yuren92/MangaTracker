@@ -39,6 +39,5 @@ public sealed record ComicVineIssueDetailDto(
     string? ImageUrl,
     DateOnly? CoverDate,
     DateOnly? StoreDate,
-    string? Description,
     string? SiteDetailUrl,
     string ApiDetailUrl);

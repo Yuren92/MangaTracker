@@ -36,12 +36,6 @@ public sealed class FakeComicVineClient : IComicVineClient
         return Task.FromResult<IReadOnlyCollection<ComicVineVolumeSearchResultDto>>([]);
     }
 
-    public Task<ComicVineVolumeDetailDto?> GetVolumeByComicVineVolumeIdAsync(
-        int comicVineVolumeId, CancellationToken cancellationToken = default)
-    {
-        return Task.FromResult(_volumes.Values.FirstOrDefault(volume => volume.ComicVineVolumeId == comicVineVolumeId));
-    }
-
     public async Task<ComicVineVolumeDetailDto?> GetVolumeByApiDetailUrlAsync(
         string apiDetailUrl, CancellationToken cancellationToken = default)
     {
@@ -63,16 +57,13 @@ public sealed class FakeComicVineClient : IComicVineClient
         return _volumes.GetValueOrDefault(apiDetailUrl);
     }
 
-    public Task<ComicVineIssueDetailDto?> GetIssueByApiDetailUrlAsync(
-        string apiDetailUrl, CancellationToken cancellationToken = default)
+    public Task<IReadOnlyCollection<ComicVineIssueDetailDto>> GetVolumeIssuesAsync(
+        int comicVineVolumeId, CancellationToken cancellationToken = default)
     {
-        var issue = _volumes.Values
+        var issues = _volumes.Values
+            .Where(volume => volume.ComicVineVolumeId == comicVineVolumeId)
             .SelectMany(volume => volume.Issues)
-            .FirstOrDefault(issue => string.Equals(issue.ApiDetailUrl, apiDetailUrl, StringComparison.OrdinalIgnoreCase));
-
-        return Task.FromResult(issue is null
-            ? null
-            : new ComicVineIssueDetailDto(
+            .Select(issue => new ComicVineIssueDetailDto(
                 issue.ComicVineIssueId,
                 issue.IssueNumber,
                 issue.NormalizedNumber,
@@ -80,9 +71,11 @@ public sealed class FakeComicVineClient : IComicVineClient
                 ImageUrl: null,
                 CoverDate: null,
                 StoreDate: null,
-                Description: null,
                 issue.SiteDetailUrl,
-                issue.ApiDetailUrl));
+                issue.ApiDetailUrl))
+            .ToList();
+
+        return Task.FromResult<IReadOnlyCollection<ComicVineIssueDetailDto>>(issues);
     }
 
     private static ComicVineVolumeDetailDto Volume(int id, string name, string url, int firstIssue)

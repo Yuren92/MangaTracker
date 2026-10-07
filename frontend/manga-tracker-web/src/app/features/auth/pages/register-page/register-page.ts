@@ -1,19 +1,23 @@
 import { Component, inject, signal } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+
 import { getApiErrorMessage } from '../../../../core/http/api-error';
 import { AppAlert } from '../../../../shared/components/app-alert/app-alert';
+import { PASSWORD_RULES_HINT, strongPasswordValidator } from '../../../../shared/validators/password-validator';
 import { AuthApi } from '../../services/auth-api';
 
 @Component({
   selector: 'app-register-page',
   imports: [ReactiveFormsModule, RouterLink, AppAlert],
   templateUrl: './register-page.html',
-  styleUrl: './register-page.scss'
+  styleUrl: '../../auth-card.scss'
 })
 export class RegisterPage {
   private readonly formBuilder = inject(NonNullableFormBuilder);
   private readonly authApi = inject(AuthApi);
+
+  readonly passwordRulesHint = PASSWORD_RULES_HINT;
 
   readonly isSubmitting = signal(false);
   readonly errorMessage = signal<string | null>(null);
@@ -21,7 +25,7 @@ export class RegisterPage {
 
   readonly form = this.formBuilder.group({
     email: ['', [Validators.required, Validators.email]],
-    password: ['', [Validators.required]]
+    password: ['', [Validators.required, strongPasswordValidator]]
   });
 
   submit(): void {

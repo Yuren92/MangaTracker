@@ -71,7 +71,15 @@ public sealed class ResetPasswordHandler
 
         userToken.MarkAsUsed();
 
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (ConcurrentUpdateException)
+        {
+            // A concurrent request used the same link first: it is single-use.
+            throw new ValidationException("Password reset token is invalid or expired.");
+        }
 
         return new ResetPasswordResult("Password reset successfully.");
     }

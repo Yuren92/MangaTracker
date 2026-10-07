@@ -1,6 +1,6 @@
 <section class="page">
   <a class="back-link" routerLink="/collections">
-    ← Mi colección
+    ← Mis colecciones
   </a>
 
   @if (isLoading()) {
@@ -10,7 +10,7 @@
   }
 
   @if (errorMessage()) {
-    <div class="alert error">
+    <div class="alert error" role="alert">
       {{ errorMessage() }}
     </div>
   }
@@ -19,7 +19,7 @@
     <header class="collection-header">
       <div class="cover">
         @if (collection.imageUrl) {
-          <img [src]="collection.imageUrl" [alt]="collection.title" />
+          <img [src]="collection.imageUrl" [alt]="'Portada de ' + collection.title" />
         } @else {
           <div class="no-image">Sin imagen</div>
         }
@@ -43,109 +43,111 @@
     </header>
 
     <section class="tomes-section">
-  <div class="tomes-header">
-    <h2>Tomos</h2>
+      <div class="tomes-header">
+        <h2>Tomos</h2>
 
-    <div class="tome-controls">
-      <label>
-        Ver
-        <select
-          [value]="tomeFilter()"
-          (change)="tomeFilter.set($any($event.target).value)"
-        >
-          <option value="all">Todos</option>
-          <option value="owned">Comprados</option>
-          <option value="pending">Pendientes</option>
-        </select>
-      </label>
+        <div class="tome-controls">
+          <label>
+            Ver
+            <select
+              [value]="tomeFilter()"
+              (change)="tomeFilter.set($any($event.target).value)"
+            >
+              <option value="all">Todos</option>
+              <option value="owned">Comprados</option>
+              <option value="pending">Pendientes</option>
+            </select>
+          </label>
 
-      <label>
-        Orden
-        <select
-          [value]="tomeOrder()"
-          (change)="tomeOrder.set($any($event.target).value)"
-        >
-          <option value="normal">Normal</option>
-          <option value="reverse">Inverso</option>
-        </select>
-      </label>
+          <label>
+            Orden
+            <select
+              [value]="tomeOrder()"
+              (change)="tomeOrder.set($any($event.target).value)"
+            >
+              <option value="normal">Normal</option>
+              <option value="reverse">Inverso</option>
+            </select>
+          </label>
 
-      @if (collection.pendingTomes > 0) {
-        <button
-            type="button"
-            class="mark-all-button"
-            [disabled]="isMarkingAllAsOwned()"
-            (click)="markAllAsOwned()"
-        >
-            @if (isMarkingAllAsOwned()) {
-            Marcando...
-            } @else {
-            Marcar todos como comprados
-            }
-        </button>
-        } @else {
-        <button
-            type="button"
-            class="mark-all-button all-owned"
-            disabled
-        >
-            Todos comprados
-        </button>
-        }
-    </div>
-  </div>
-
-  @if (filteredOrderedTomes().length === 0) {
-    <div class="state-card">
-      No hay tomos para este filtro.
-    </div>
-  } @else {
-    <div class="tomes-grid">
-      @for (tome of filteredOrderedTomes(); track tome.tomeId) {
-          <article class="tome-card" [class.owned]="tome.isOwned">
-            <div class="tome-cover">
-              @if (tome.imageUrl) {
-                <img [src]="tome.imageUrl" [alt]="tome.title ?? collection.title" />
+          @if (collection.pendingTomes > 0) {
+            <button
+              type="button"
+              class="mark-all-button"
+              [disabled]="isMarkingAllAsOwned()"
+              (click)="markAllAsOwned()"
+            >
+              @if (isMarkingAllAsOwned()) {
+                Marcando...
               } @else {
-                <div class="no-image">Sin imagen</div>
+                Marcar todos como comprados
               }
-            </div>
+            </button>
+          } @else {
+            <button type="button" class="mark-all-button all-owned" disabled>
+              Todos comprados
+            </button>
+          }
+        </div>
+      </div>
 
-            <div class="tome-content">
-              <div>
-                <p class="issue-number">
-                  Tomo {{ tome.issueNumber || 'sin número' }}
-                </p>
-
-                <h3>{{ tome.title ?? 'Sin título' }}</h3>
-
-                @if (tome.storeDate) {
-                  <p class="date">
-                    Publicado: {{ tome.storeDate }}
-                  </p>
+      @if (filteredOrderedTomes().length === 0) {
+        <div class="state-card">
+          No hay tomos para este filtro.
+        </div>
+      } @else {
+        <div class="tomes-grid">
+          @for (tome of filteredOrderedTomes(); track tome.tomeId) {
+            <article class="tome-card" [class.owned]="tome.isOwned">
+              <div class="tome-cover">
+                @if (tome.imageUrl) {
+                  <img
+                    [src]="tome.imageUrl"
+                    [alt]="'Portada del tomo ' + (tome.issueNumber || 'sin número')"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                } @else {
+                  <div class="no-image">Sin imagen</div>
                 }
               </div>
 
-              <button
-                type="button"
-                class="owned-state"
-                [class.is-owned]="tome.isOwned"
-                [disabled]="isTomeUpdating(tome.tomeId)"
-                (click)="toggleTomeOwnership(tome.tomeId, tome.isOwned)"
+              <div class="tome-content">
+                <div>
+                  <p class="issue-number">
+                    Tomo {{ tome.issueNumber || 'sin número' }}
+                  </p>
+
+                  <h3>{{ tome.title ?? 'Sin título' }}</h3>
+
+                  @if (tome.storeDate) {
+                    <p class="date">
+                      Publicado: {{ tome.storeDate | date: 'longDate' }}
+                    </p>
+                  }
+                </div>
+
+                <button
+                  type="button"
+                  class="owned-state"
+                  [class.is-owned]="tome.isOwned"
+                  [attr.aria-pressed]="tome.isOwned"
+                  [disabled]="isTomeUpdating(tome.tomeId)"
+                  (click)="toggleTomeOwnership(tome.tomeId, tome.isOwned)"
                 >
-                @if (isTomeUpdating(tome.tomeId)) {
+                  @if (isTomeUpdating(tome.tomeId)) {
                     Actualizando...
-                } @else if (tome.isOwned) {
+                  } @else if (tome.isOwned) {
                     Comprado
-                } @else {
+                  } @else {
                     Marcar comprado
-                }
+                  }
                 </button>
-            </div>
-          </article>
-        }
-      </div>
-    }
+              </div>
+            </article>
+          }
+        </div>
+      }
     </section>
   }
 </section>

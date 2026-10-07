@@ -7,27 +7,27 @@
     </p>
   }
 
-  @if (successMessage()) {
-  <app-alert type="success" [message]="successMessage()" />
+  @if (isConfirmed()) {
+    <app-alert type="success" message="Email confirmado." />
 
-  <p>
-    Tu cuenta ya está activa. Ahora puedes iniciar sesión.
-  </p>
+    <p>
+      Tu cuenta ya está activa. Ahora puedes iniciar sesión.
+    </p>
 
-  <a routerLink="/login" class="button-link">
-    Ir al login
-  </a>
-}
+    <a routerLink="/login" class="button-link">
+      Ir al login
+    </a>
+  }
 
-@if (errorMessage()) {
-  <app-alert type="error" [message]="errorMessage()" />
+  @if (errorMessage()) {
+    <app-alert type="error" [message]="errorMessage()" />
 
-  <p>
-    El enlace puede haber caducado o ya haber sido usado.
-  </p>
+    <p>
+      El enlace puede haber caducado o ya haber sido usado.
+    </p>
 
-  <a routerLink="/login" class="button-link">
-    Ir al login
-  </a>
-}
+    <a routerLink="/resend-confirmation" class="button-link">
+      Pedir otro enlace
+    </a>
+  }
 </section>

@@ -18,9 +18,10 @@ public interface IUserCollectionRepository
         UserCollection userCollection,
         CancellationToken cancellationToken = default);
 
+    // Loads each collection's edition with its tomes (not owned tomes): what the sync needs.
     Task<IReadOnlyCollection<UserCollection>> GetAllByUserIdAsync(
-    Guid userId,
-    CancellationToken cancellationToken = default);
+        Guid userId,
+        CancellationToken cancellationToken = default);
 
     void Remove(UserCollection userCollection);
 }

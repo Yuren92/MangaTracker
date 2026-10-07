@@ -31,6 +31,12 @@ public sealed class EfUnitOfWork : IUnitOfWork
                 "The data was modified by another request. Please try again.",
                 exception);
         }
+        catch (DbUpdateConcurrencyException exception)
+        {
+            throw new ConcurrentUpdateException(
+                "The data was modified by another request. Please try again.",
+                exception);
+        }
     }
 
     public void DiscardChanges()

@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using MangaTracker.Application.Abstractions;
 using MangaTracker.Application.Catalog.PreviewComicVineVolume;
 using MangaTracker.Application.Catalog.SearchCatalog;

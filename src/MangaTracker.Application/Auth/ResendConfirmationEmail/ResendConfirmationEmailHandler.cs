@@ -63,6 +63,7 @@ public sealed class ResendConfirmationEmailHandler
             user.Id,
             UserTokenType.EmailConfirmation,
             cancellationToken);
+
         var confirmationToken = _tokenGenerator.GenerateSecureToken();
         var confirmationTokenHash = _tokenHasher.HashToken(confirmationToken);
 
@@ -73,7 +74,17 @@ public sealed class ResendConfirmationEmailHandler
             expiresAt: _timeProvider.GetUtcNow().Add(EmailConfirmationTokenLifetime));
 
         await _userTokenRepository.AddAsync(userToken, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (ConcurrentUpdateException)
+        {
+            // A concurrent request replaced the previous link first and is sending a
+            // fresh one; this request has nothing left to do.
+            return new ResendConfirmationEmailResult(GenericMessage);
+        }
 
         var confirmationUrl = _authLinkBuilder.BuildEmailConfirmationUrl(confirmationToken);
 

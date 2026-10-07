@@ -88,7 +88,7 @@ public sealed class AuthController : ControllerBase
     [Authorize]
     [HttpGet("me")]
     public async Task<ActionResult<GetCurrentUserResult>> GetCurrentUser(
-    CancellationToken cancellationToken)
+        CancellationToken cancellationToken)
     {
         var result = await _getCurrentUserHandler.HandleAsync(
             _currentUserService.UserId,
@@ -100,8 +100,8 @@ public sealed class AuthController : ControllerBase
     [EnableRateLimiting(RateLimitPolicies.AuthSensitive)]
     [HttpPost("confirm-email")]
     public async Task<ActionResult<ConfirmEmailResult>> ConfirmEmail(
-    ConfirmEmailRequest request,
-    CancellationToken cancellationToken)
+        ConfirmEmailRequest request,
+        CancellationToken cancellationToken)
     {
         var command = new ConfirmEmailCommand(
             Token: request.Token);
@@ -116,8 +116,8 @@ public sealed class AuthController : ControllerBase
     [EnableRateLimiting(RateLimitPolicies.AuthSensitive)]
     [HttpPost("resend-confirmation-email")]
     public async Task<ActionResult<ResendConfirmationEmailResult>> ResendConfirmationEmail(
-    ResendConfirmationEmailRequest request,
-    CancellationToken cancellationToken)
+        ResendConfirmationEmailRequest request,
+        CancellationToken cancellationToken)
     {
         var command = new ResendConfirmationEmailCommand(
             Email: request.Email);
@@ -132,8 +132,8 @@ public sealed class AuthController : ControllerBase
     [EnableRateLimiting(RateLimitPolicies.AuthSensitive)]
     [HttpPost("forgot-password")]
     public async Task<ActionResult<ForgotPasswordResult>> ForgotPassword(
-    ForgotPasswordRequest request,
-    CancellationToken cancellationToken)
+        ForgotPasswordRequest request,
+        CancellationToken cancellationToken)
     {
         var command = new ForgotPasswordCommand(
             Email: request.Email);
@@ -148,8 +148,8 @@ public sealed class AuthController : ControllerBase
     [EnableRateLimiting(RateLimitPolicies.AuthSensitive)]
     [HttpPost("reset-password")]
     public async Task<ActionResult<ResetPasswordResult>> ResetPassword(
-    ResetPasswordRequest request,
-    CancellationToken cancellationToken)
+        ResetPasswordRequest request,
+        CancellationToken cancellationToken)
     {
         var command = new ResetPasswordCommand(
             Token: request.Token,
@@ -165,8 +165,8 @@ public sealed class AuthController : ControllerBase
     [Authorize]
     [HttpPost("change-password")]
     public async Task<ActionResult<ChangePasswordResult>> ChangePassword(
-    ChangePasswordRequest request,
-    CancellationToken cancellationToken)
+        ChangePasswordRequest request,
+        CancellationToken cancellationToken)
     {
         var command = new ChangePasswordCommand(
             UserId: _currentUserService.UserId,

@@ -1,4 +1,5 @@
-using FluentAssertions;
+using AwesomeAssertions;
+using MangaTracker.Application.Abstractions;
 using MangaTracker.Application.Abstractions.Email;
 using MangaTracker.Infrastructure;
 using MangaTracker.Infrastructure.Auth;
@@ -34,9 +35,7 @@ public sealed class DependencyInjectionTests
         var services = new ServiceCollection()
             .AddInfrastructure(configuration, Environment(Environments.Development));
 
-        services.Should().Contain(descriptor =>
-            descriptor.ServiceType == typeof(IEmailSender) &&
-            descriptor.ImplementationType == typeof(ConsoleEmailSender));
+        services.Should().Contain(descriptor => IsEmailTransport(descriptor, typeof(ConsoleEmailSender)));
     }
 
     [Fact]
@@ -47,9 +46,27 @@ public sealed class DependencyInjectionTests
         var services = new ServiceCollection()
             .AddInfrastructure(configuration, Environment(Environments.Production));
 
+        services.Should().Contain(descriptor => IsEmailTransport(descriptor, typeof(SmtpEmailSender)));
+    }
+
+    [Fact]
+    public void Use_cases_should_get_the_queued_email_sender()
+    {
+        var services = new ServiceCollection()
+            .AddInfrastructure(BuildConfiguration(), Environment(Environments.Production));
+
         services.Should().Contain(descriptor =>
+            !descriptor.IsKeyedService &&
             descriptor.ServiceType == typeof(IEmailSender) &&
-            descriptor.ImplementationType == typeof(SmtpEmailSender));
+            descriptor.ImplementationType == typeof(BackgroundEmailSender));
+    }
+
+    private static bool IsEmailTransport(ServiceDescriptor descriptor, Type implementationType)
+    {
+        return descriptor.IsKeyedService &&
+            Equals(descriptor.ServiceKey, EmailTransport.Key) &&
+            descriptor.ServiceType == typeof(IEmailSender) &&
+            descriptor.KeyedImplementationType == implementationType;
     }
 
     [Fact]
@@ -75,6 +92,18 @@ public sealed class DependencyInjectionTests
             _ = provider.GetRequiredService<IOptions<ComicVineOptions>>().Value;
             _ = provider.GetRequiredService<IOptions<SmtpEmailOptions>>().Value;
         };
+
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void Comic_vine_client_should_build_with_a_valid_resilience_pipeline()
+    {
+        // Polly validates its options when the client is created (e.g. the circuit
+        // breaker's sampling window must be at least twice the attempt timeout).
+        using var provider = BuildProvider(BuildConfiguration(), Environments.Production);
+
+        var act = () => provider.GetRequiredService<IComicVineClient>();
 
         act.Should().NotThrow();
     }

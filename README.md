@@ -22,15 +22,17 @@ Las capturas son de la aplicación real y se regeneran con Playwright (`frontend
 ## Qué demuestra este proyecto
 
 * **Arquitectura por capas sin ceremonia.** Domain, Application, Infrastructure y Api con dependencias hacia el dominio; casos de uso explícitos sin MediatR; repositorios específicos, un [Unit of Work](src/MangaTracker.Infrastructure/Persistence/EfUnitOfWork.cs) y [consultas de lectura](src/MangaTracker.Infrastructure/Queries/CollectionQueries.cs) proyectadas en SQL.
-* **Seguridad pensada y probada.** Revocación de JWT al cambiar la contraseña con un [`SecurityStamp`](src/MangaTracker.Api/Auth/SecurityStampValidator.cs); tokens de un solo uso guardados como hash; sin enumeración de cuentas (misma respuesta y mismo coste); protección SSRF en el [cliente de Comic Vine](src/MangaTracker.Infrastructure/ExternalServices/ComicVine/ComicVineClient.cs); rate limiting por usuario; configuración validada al arrancar.
+* **Seguridad pensada y probada.** Revocación de JWT al cambiar la contraseña con un [`SecurityStamp`](src/MangaTracker.Api/Auth/SecurityStampValidator.cs); tokens de un solo uso guardados como hash; sin enumeración de cuentas (misma respuesta y mismo coste, con los correos enviados [en segundo plano](src/MangaTracker.Infrastructure/Email/BackgroundEmailSender.cs) para que el SMTP no delate qué emails existen); protección SSRF en el [cliente de Comic Vine](src/MangaTracker.Infrastructure/ExternalServices/ComicVine/ComicVineClient.cs); rate limiting por usuario; configuración validada al arrancar.
 * **Datos externos que fallan.** Reintentos, timeouts y circuit breaker con Polly; 404 frente a 503; importación reanudable e idempotente; importaciones simultáneas resueltas con el índice único y un reintento.
+* **Un buen cliente de una API ajena.** Las peticiones a Comic Vine se espacian al menos un segundo (su límite real, según su foro), el `420` con el que limita no se reintenta y abre el circuito, `field_list` pide solo los campos usados, y los tomos se leen en páginas de 100: importar un volumen de 193 tomos cuesta 3 peticiones en lugar de 194.
+* **Concurrencia probada contra SQL Server.** Un enlace de un solo uso enviado por cinco peticiones a la vez solo funciona una vez (concurrencia optimista sobre `UsedAt`); el test reproduce la carrera y fallaba antes del arreglo.
 * **Tests en tres niveles.** Unitarios, integración contra SQL Server real con `WebApplicationFactory` (autenticación, IDOR, concurrencia, caducidad de tokens) y end-to-end con Playwright. Cobertura de líneas del 80 al 91 % según el proyecto.
 * **CI que bloquea.** Build con warnings como errores, auditoría de dependencias vulnerables y tests contra un contenedor de SQL Server en cada push.
 * **Decisiones documentadas.** Lo que no se ha hecho también está razonado: [decisiones y limitaciones conocidas](#decisiones-y-limitaciones-conocidas).
 
 ## Funcionalidades
 
-* Registro con confirmación por email, login, cambio y recuperación de contraseña (correos reales con Brevo).
+* Registro con confirmación por email (y reenvío del enlace), login, cambio y recuperación de contraseña (correos reales con Brevo).
 * Búsqueda de ediciones en Comic Vine, vista previa e importación con todos sus tomos.
 * Colecciones por usuario: marcar tomos uno a uno o todos, ver pendientes de todas las colecciones, eliminar colecciones.
 * Sincronización automática con Comic Vine para incorporar tomos nuevos.
@@ -49,7 +51,7 @@ Las capturas son de la aplicación real y se regeneran con Playwright (`frontend
 * ASP.NET Core Health Checks
 * SMTP para envío de correos
 * Microsoft.Extensions.Http.Resilience (Polly)
-* xUnit, FluentAssertions, NSubstitute
+* xUnit, AwesomeAssertions, NSubstitute
 * WebApplicationFactory contra SQL Server real
 
 ### Frontend
@@ -167,7 +169,7 @@ Incluye:
 * Hashing de contraseñas.
 * Hashing de tokens.
 * Envío de correos por consola en desarrollo.
-* Envío de correos por SMTP en producción.
+* Envío de correos por SMTP en producción, desde una cola en segundo plano.
 * Servicio en background para limpieza de usuarios no confirmados y tokens expirados.
 
 ### `MangaTracker.Api`
@@ -295,6 +297,8 @@ Implementaciones:
 
 Esto permite usar logs en desarrollo y correos reales en producción.
 
+Los casos de uso no envían el correo dentro de la petición: `BackgroundEmailSender` lo deja en una cola en memoria y `EmailDispatcherService` lo envía con el transporte real. Así la recuperación de contraseña tarda lo mismo exista o no la cuenta (un SMTP lento delataría los emails registrados), y un fallo del SMTP no convierte en error una operación ya guardada, como confirmar la cuenta.
+
 ## Seguridad y configuración
 
 El proyecto usa configuración externa para secretos.
@@ -329,10 +333,11 @@ Ejemplos:
 * Importación desde Comic Vine.
 * Sincronización de colecciones.
 
-Esto ayuda a proteger la API y a no abusar de Comic Vine.
+Esto ayuda a proteger la API y a no abusar de Comic Vine. Además, el cliente de Comic Vine respeta por su cuenta el ritmo que exige el proveedor (una petición por segundo para todo el proceso), con independencia de cuántos usuarios haya.
 
 La partición depende del tipo de endpoint:
 
+* La sincronización tiene su propio límite: la pantalla de colecciones sincroniza en cada visita y, si compartiera cupo con la importación, navegar por la app agotaría las importaciones del minuto.
 * Endpoints autenticados (catálogo, importación, sincronización): límite por usuario, a partir del id del JWT. No se puede falsificar y no depende de los proxies que haya delante de la API.
 * Endpoints anónimos (login, registro, recuperación de contraseña): límite por IP del cliente.
 
@@ -348,7 +353,9 @@ Ejemplos:
 * `NotFoundException` -> `404 Not Found`
 * `ConflictException` -> `409 Conflict`
 * `DomainException` -> `400 Bad Request`
-* Errores inesperados -> `500 Internal Server Error`
+* Errores inesperados -> `500 Internal Server Error`, con un mensaje genérico
+
+Todas las respuestas de error llevan un `traceId` para encontrar la petición en los logs. Una petición que el cliente cancela (cierra la pestaña) no se registra como error del servidor.
 
 En Angular, los errores se procesan con un helper común para mostrar mensajes claros al usuario.
 
@@ -358,16 +365,13 @@ El frontend está construido con Angular moderno.
 
 Características:
 
-* Standalone components.
-* Signals.
-* Templates con `@if` y `@for`.
-* Servicios separados para API.
-* Interceptor JWT.
-* Guards de autenticación.
-* Diseño responsive.
-* Cards unificadas para catálogo, colecciones, pendientes y detalle.
-* Menú de usuario con cierre al hacer click fuera.
-* Interceptor que solo envía el JWT a la propia API.
+* Standalone components, signals y templates con `@if` y `@for`.
+* Rutas con carga diferida (`loadComponent`): el bundle inicial solo lleva el layout.
+* Servicios separados para la API, guards de autenticación e interceptor que solo envía el JWT a la propia API.
+* Textos en español en la interfaz: la API responde en inglés y [`api-error.ts`](frontend/manga-tracker-web/src/app/core/http/api-error.ts) traduce los errores que el usuario puede resolver; el resto se sustituye por el mensaje de la pantalla.
+* Reglas de contraseña comprobadas también en el formulario, antes de enviar.
+* Diseño responsive, portadas con carga diferida (`loading="lazy"`) y fechas en formato español.
+* Accesibilidad básica: `autocomplete` en formularios, enlace activo con `aria-current`, alertas con `role="alert"`.
 
 ## Comunicación frontend-backend
 
@@ -543,16 +547,18 @@ dotnet ef migrations script --idempotent `
 Compromisos asumidos a propósito para el tamaño actual del proyecto, con lo que cambiaría si creciera:
 
 * **JWT en `localStorage`.** Un XSS podría leer el token. La alternativa habitual son cookies `HttpOnly` + `Secure` + `SameSite`, pero el frontend (`vercel.app`) y la API (`runasp.net`) están en dominios distintos: la cookie sería de terceros, y los navegadores ya las bloquean o las están retirando. Hacerlo bien exige servir ambos bajo el mismo dominio o un BFF, más la protección CSRF correspondiente. Mientras tanto se reduce el riesgo con tokens de vida corta, revocación por `SecurityStamp`, sanitización de Angular (versión parcheada) y un interceptor que solo envía el token a la API.
-* **Correo enviado después de guardar.** Si el SMTP falla tras el `SaveChanges`, el usuario existe pero no recibe el enlace (puede pedir otro). La solución robusta es un *outbox*: guardar el correo pendiente en la misma transacción y enviarlo desde un worker con reintentos.
+* **Cola de correos en memoria.** Los correos se envían fuera de la petición, pero la cola no es persistente: si el proceso se reinicia con correos pendientes, se pierden (el usuario puede pedir otro enlace) y un fallo del SMTP solo se registra en el log. La solución robusta es un *outbox*: guardar el correo pendiente en la misma transacción y enviarlo desde un worker con reintentos.
 * **`Series` agrupada por título.** Comic Vine no tiene un identificador para la obra por encima del volumen, así que las ediciones se agrupan por nombre. Dos obras distintas con el mismo título acabarían en la misma serie; `Edition` y `Tome` sí usan IDs de Comic Vine.
-* **Importación síncrona y secuencial.** Hasta 250 peticiones de detalle dentro de una petición HTTP. Paralelizarlas no ayuda: Comic Vine limita por recurso y hora. Para volúmenes grandes lo correcto sería una importación en segundo plano con progreso; hoy la reanudación y la idempotencia hacen que un fallo a mitad no pierda trabajo.
+* **Importación síncrona.** Un volumen se importa dentro de la petición HTTP con una petición a Comic Vine por cada 100 tomos (máximo 250 tomos). Como Comic Vine solo admite una petición por segundo, todas las del proceso pasan por un turnero común ([`ComicVineRequestGate`](src/MangaTracker.Infrastructure/ExternalServices/ComicVine/ComicVineRequestGate.cs)); con muchos usuarios a la vez la espera crece, y si supera unos segundos la API responde 503 en lugar de dejar la petición colgada. Con más tráfico lo correcto sería una importación en segundo plano con progreso; hoy la reanudación y la idempotencia hacen que un fallo a mitad no pierda trabajo.
+* **Turnero en memoria.** Solo coordina las peticiones de una instancia de la API. Con varias instancias haría falta un limitador compartido (por ejemplo en Redis).
+* **Mensajes de la API en inglés.** La interfaz los traduce comparando el texto. Con más pantallas o idiomas, la API devolvería un código de error estable en los `ProblemDetails` y el frontend traduciría por código.
 * **Validación del `SecurityStamp` en cada petición.** Una consulta por clave primaria por petición autenticada. Con más tráfico se cachearía unos segundos.
 * **Vulnerabilidades en herramientas de desarrollo.** `npm audit` reporta avisos dentro de Angular CLI/build (no llegan al navegador) que solo se pueden corregir con versiones nuevas de Angular. El CI audita las dependencias de producción.
 
 ## Próximas mejoras posibles
 
 * Importación en segundo plano para volúmenes grandes.
-* Outbox para el envío de correos.
+* Outbox persistente para el envío de correos.
 * Frontend y API bajo el mismo dominio para pasar el token a una cookie `HttpOnly`.
 * Mejorar filtros de búsqueda y ordenación de colecciones.
 * Añadir dashboard/resumen inicial y favoritos o wishlist.

@@ -35,9 +35,10 @@ export class UserCollectionsPage implements OnInit {
         this.collections.set(response.items);
         this.isLoading.set(false);
 
-         if (response.items.length > 0) {
-        this.syncCollections();
-  }
+        // The list shows local data at once; new tomes from Comic Vine arrive after the sync.
+        if (response.items.length > 0) {
+          this.syncCollections();
+        }
       },
       error: error => {
         this.errorMessage.set(
@@ -121,7 +122,7 @@ export class UserCollectionsPage implements OnInit {
         this.collections.set(response.items);
       },
       error: () => {
-        // Si la recarga tras sincronizar falla, mantenemos la lista anterior.
+        // If the reload after the sync fails, the list already on screen stays.
       }
     });
   }

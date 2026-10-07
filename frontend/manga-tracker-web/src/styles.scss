@@ -1,10 +1,15 @@
 /* Global base styles. Components style themselves; this only sets what every page
-   shares: box model, system font stack and the page background. */
+   shares: box model, system font stack, the page background and design tokens. */
 
 *,
 *::before,
 *::after {
   box-sizing: border-box;
+}
+
+/* Shared by every card-like surface (forms, covers, collections...). */
+:root {
+  --card-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
 }
 
 html {
@@ -41,6 +46,13 @@ textarea {
 
 img {
   max-width: 100%;
+}
+
+/* Content column of the catalog and collection pages. */
+.page {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 32px 20px;
 }
 
 h1,

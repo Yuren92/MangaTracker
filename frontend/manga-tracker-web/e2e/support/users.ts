@@ -17,7 +17,7 @@ export async function register(page: Page, email: string, pwd = password): Promi
 
 export async function confirm(page: Page, email: string): Promise<void> {
   await page.goto(await latestLink(email, 'confirmation'));
-  await expect(page.getByText(/confirmed successfully/i)).toBeVisible();
+  await expect(page.getByText('Email confirmado')).toBeVisible();
 }
 
 export async function login(page: Page, email: string, pwd = password): Promise<void> {

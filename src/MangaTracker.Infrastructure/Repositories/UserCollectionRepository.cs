@@ -30,14 +30,18 @@ public sealed class UserCollectionRepository : IUserCollectionRepository
     public Task<UserCollection?> GetByUserIdAndIdAsync(
         Guid userId,
         Guid collectionId,
-    CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default)
     {
+        // Tomes and OwnedTomes are sibling collections: in a single query SQL would return
+        // their cartesian product (100 tomes, all owned = 10,000 rows). Split queries load
+        // each collection on its own.
         return _dbContext.UserCollections
             .Include(collection => collection.Edition)
                 .ThenInclude(edition => edition.Series)
             .Include(collection => collection.Edition)
                 .ThenInclude(edition => edition.Tomes)
             .Include(collection => collection.OwnedTomes)
+            .AsSplitQuery()
             .FirstOrDefaultAsync(
                 collection =>
                     collection.UserId == userId &&
@@ -56,13 +60,13 @@ public sealed class UserCollectionRepository : IUserCollectionRepository
         Guid userId,
         CancellationToken cancellationToken = default)
     {
+        // Used by the sync, which only needs each edition and its tomes; owned tomes and
+        // series are not loaded.
         return await _dbContext.UserCollections
             .Include(collection => collection.Edition)
-                .ThenInclude(edition => edition.Series)
-            .Include(collection => collection.Edition)
                 .ThenInclude(edition => edition.Tomes)
-            .Include(collection => collection.OwnedTomes)
             .Where(collection => collection.UserId == userId)
+            .AsSplitQuery()
             .ToListAsync(cancellationToken);
     }
 

@@ -1,3 +1,4 @@
+import { DatePipe } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 
@@ -10,7 +11,7 @@ type TomeOrder = 'normal' | 'reverse';
 
 @Component({
   selector: 'app-user-collection-detail-page',
-  imports: [RouterLink],
+  imports: [RouterLink, DatePipe],
   templateUrl: './user-collection-detail-page.html',
   styleUrl: './user-collection-detail-page.scss',
 })

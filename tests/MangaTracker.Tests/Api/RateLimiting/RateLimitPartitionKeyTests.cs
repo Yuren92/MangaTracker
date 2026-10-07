@@ -1,6 +1,6 @@
 using System.Net;
 using System.Security.Claims;
-using FluentAssertions;
+using AwesomeAssertions;
 using MangaTracker.Api.RateLimiting;
 using Microsoft.AspNetCore.Http;
 

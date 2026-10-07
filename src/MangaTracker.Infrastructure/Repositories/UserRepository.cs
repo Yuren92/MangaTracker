@@ -51,8 +51,8 @@ public sealed class UserRepository : IUserRepository
     }
 
     public async Task DeleteUnconfirmedUsersOlderThanAsync(
-    DateTimeOffset cutoff,
-    CancellationToken cancellationToken = default)
+        DateTimeOffset cutoff,
+        CancellationToken cancellationToken = default)
     {
         var usersToDelete = await _dbContext.Users
             .Where(user =>

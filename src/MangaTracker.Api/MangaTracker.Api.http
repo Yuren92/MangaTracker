@@ -1,6 +1,56 @@
-@MangaTracker.Api_HostAddress = http://localhost:5243
+# Requests for the Visual Studio / Rider / VS Code REST client.
+# 1. Log in and copy the accessToken into @token.
+# 2. Run the authenticated requests below.
 
-GET {{MangaTracker.Api_HostAddress}}/weatherforecast/
-Accept: application/json
+@host = http://localhost:5243
+@token = paste-the-access-token-here
 
-###
+### Health
+GET {{host}}/health
+
+### Log in
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "Password123"
+}
+
+### Current user
+GET {{host}}/api/auth/me
+Authorization: Bearer {{token}}
+
+### Search the Comic Vine catalog
+GET {{host}}/api/catalog/search?query=berserk&limit=5
+Authorization: Bearer {{token}}
+
+### Preview a volume before importing it
+POST {{host}}/api/catalog/comic-vine/volumes/preview
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "apiDetailUrl": "https://comicvine.gamespot.com/api/volume/4050-18166/"
+}
+
+### Import a volume into my collections
+POST {{host}}/api/collections/import-comic-vine-volume
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "apiDetailUrl": "https://comicvine.gamespot.com/api/volume/4050-18166/"
+}
+
+### My collections
+GET {{host}}/api/collections
+Authorization: Bearer {{token}}
+
+### Pending tomes across all collections
+GET {{host}}/api/collections/pending-tomes
+Authorization: Bearer {{token}}
+
+### Sync collections with Comic Vine
+POST {{host}}/api/collections/sync
+Authorization: Bearer {{token}}

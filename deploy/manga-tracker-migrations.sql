@@ -516,3 +516,16 @@ END;
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261007134733_MakeUserTokenUsedAtConcurrencyToken'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261007134733_MakeUserTokenUsedAtConcurrencyToken', N'10.0.12');
+END;
+
+COMMIT;
+GO
+

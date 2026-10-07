@@ -155,6 +155,11 @@ public sealed class SyncUserCollectionsHandler
             .ThenBy(issue => issue.IssueNumber, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
+        if (newIssueSummaries.Count == 0)
+        {
+            return 0;
+        }
+
         // Tomes for these issues may already exist (e.g. stored under another edition);
         // fetch them all at once rather than with one query per issue.
         var storedTomes = await _tomeRepository.GetByComicVineApiDetailUrlsAsync(
@@ -165,15 +170,16 @@ public sealed class SyncUserCollectionsHandler
             tome => tome.ComicVineApiDetailUrl,
             StringComparer.OrdinalIgnoreCase);
 
+        // The details of every issue of the volume, one request per 100 issues.
+        var issueDetails = (await _comicVineClient.GetVolumeIssuesAsync(volume.ComicVineVolumeId, cancellationToken))
+            .DistinctBy(issue => issue.ApiDetailUrl, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(issue => issue.ApiDetailUrl, StringComparer.OrdinalIgnoreCase);
+
         var addedTomes = 0;
 
         foreach (var issueSummary in newIssueSummaries)
         {
-            var issueDetail = await _comicVineClient.GetIssueByApiDetailUrlAsync(
-                issueSummary.ApiDetailUrl,
-                cancellationToken);
-
-            if (issueDetail is null)
+            if (!issueDetails.TryGetValue(issueSummary.ApiDetailUrl, out var issueDetail))
             {
                 continue;
             }

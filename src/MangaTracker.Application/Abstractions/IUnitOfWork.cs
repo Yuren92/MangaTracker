@@ -8,6 +8,9 @@ public interface IUnitOfWork
     /// <exception cref="Common.Exceptions.UniqueConstraintViolationException">
     /// A unique constraint was violated, usually by a concurrent request.
     /// </exception>
+    /// <exception cref="Common.Exceptions.ConcurrentUpdateException">
+    /// A row changed since it was read (for example, a single-use token already used).
+    /// </exception>
     Task SaveChangesAsync(CancellationToken cancellationToken = default);
 
     // Drops every staged change so a use case can retry from a clean state.

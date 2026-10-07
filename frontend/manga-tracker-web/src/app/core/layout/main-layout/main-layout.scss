@@ -23,15 +23,23 @@
 
 .nav {
   display: flex;
+  align-items: center;
   gap: 20px;
 
-  a {
+  > a {
     color: #d1d5db;
     text-decoration: none;
     font-weight: 500;
+    padding: 4px 0;
+    border-bottom: 2px solid transparent;
 
     &:hover {
       color: white;
+    }
+
+    &.active {
+      color: white;
+      border-bottom-color: #60a5fa;
     }
   }
 }

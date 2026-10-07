@@ -32,11 +32,7 @@
     </div>
   </form>
 
-  @if (errorMessage()) {
-    <div class="alert error">
-      {{ errorMessage() }}
-    </div>
-  }
+  <app-alert type="error" [message]="errorMessage()" />
 
   @if (!isLoading() && hasSearched() && results().length === 0 && !errorMessage()) {
     <div class="empty-state">
@@ -50,17 +46,13 @@
     </div>
   }
 
-  @if (previewErrorMessage()) {
-    <div class="alert error">
-      {{ previewErrorMessage() }}
-    </div>
-  }
+  <app-alert type="error" [message]="previewErrorMessage()" />
 
   @if (selectedVolume(); as volume) {
     <section #volumePreviewSection class="preview-card">
       <div class="preview-cover">
         @if (volume.imageUrl) {
-          <img [src]="volume.imageUrl" [alt]="volume.name" />
+          <img [src]="volume.imageUrl" [alt]="'Portada de ' + volume.name" />
         } @else {
           <div class="no-image">Sin imagen</div>
         }
@@ -88,7 +80,7 @@
         </p>
 
         <div class="meta">
-          <span>{{ volume.countOfIssues }} tomos/issues</span>
+          <span>{{ volume.countOfIssues ?? '?' }} tomos</span>
 
           @if (volume.startYear) {
             <span>{{ volume.startYear }}</span>
@@ -142,11 +134,7 @@
           </div>
         }
 
-        @if (importErrorMessage()) {
-          <div class="alert error">
-            {{ importErrorMessage() }}
-          </div>
-        }
+        <app-alert type="error" [message]="importErrorMessage()" />
       </div>
     </section>
   }
@@ -157,7 +145,12 @@
         <article class="result-card">
           <div class="cover">
             @if (item.imageUrl) {
-              <img [src]="item.imageUrl" [alt]="item.name" />
+              <img
+                [src]="item.imageUrl"
+                [alt]="'Portada de ' + item.name"
+                loading="lazy"
+                decoding="async"
+              />
             } @else {
               <div class="no-image">Sin imagen</div>
             }
@@ -172,7 +165,7 @@
               </p>
 
               <div class="meta">
-                <span>{{ item.countOfIssues }} tomos/issues</span>
+                <span>{{ item.countOfIssues ?? '?' }} tomos</span>
 
                 @if (item.startYear) {
                   <span>{{ item.startYear }}</span>

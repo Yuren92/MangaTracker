@@ -15,6 +15,7 @@
       <input
         type="email"
         formControlName="email"
+        autocomplete="email"
         placeholder="tu@email.com"
       />
     </label>
@@ -31,13 +32,22 @@
       <input
         type="password"
         formControlName="password"
-        placeholder="Mínimo 8 caracteres, mayúscula, minúscula y número"
+        autocomplete="new-password"
+        aria-describedby="password-hint"
       />
     </label>
 
-    @if (form.controls.password.touched && form.controls.password.invalid) {
+    @if (form.controls.password.touched && form.controls.password.hasError('required')) {
       <p class="field-error">
         La contraseña es obligatoria.
+      </p>
+    } @else if (form.controls.password.touched && form.controls.password.hasError('weakPassword')) {
+      <p class="field-error" id="password-hint">
+        {{ passwordRulesHint }}.
+      </p>
+    } @else {
+      <p class="field-hint" id="password-hint">
+        {{ passwordRulesHint }}.
       </p>
     }
 
@@ -52,5 +62,6 @@
 
   <div class="links">
     <a routerLink="/login">Ya tengo cuenta</a>
+    <a routerLink="/resend-confirmation">No me ha llegado el correo</a>
   </div>
 </section>

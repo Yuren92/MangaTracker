@@ -1,10 +1,16 @@
+// Shared by every authentication page (login, register, password recovery...).
 .auth-card {
-  max-width: 480px;
+  max-width: 460px;
   margin: 40px auto;
   background: white;
   border-radius: 24px;
   padding: 32px;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  box-shadow: var(--card-shadow);
+
+  @media (max-width: 520px) {
+    margin: 16px auto;
+    padding: 24px 20px;
+  }
 }
 
 h1 {
@@ -15,6 +21,11 @@ h1 {
 .subtitle {
   margin: 0 0 24px;
   color: #6b7280;
+  line-height: 1.6;
+}
+
+p {
+  color: #4b5563;
   line-height: 1.6;
 }
 
@@ -31,7 +42,6 @@ label {
 
 input {
   width: 100%;
-  box-sizing: border-box;
   border: 1px solid #d1d5db;
   border-radius: 12px;
   padding: 12px 14px;
@@ -52,14 +62,22 @@ button,
   background: #2563eb;
   color: white;
   font-weight: 800;
+  font-size: 16px;
   cursor: pointer;
   text-decoration: none;
   display: inline-block;
+  text-align: center;
 
   &:disabled {
     opacity: 0.7;
     cursor: not-allowed;
   }
+}
+
+.field-hint {
+  margin: -8px 0 0;
+  color: #6b7280;
+  font-size: 14px;
 }
 
 .field-error {
@@ -70,6 +88,10 @@ button,
 
 .links {
   margin-top: 24px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px 16px;
 
   a {
     color: #2563eb;

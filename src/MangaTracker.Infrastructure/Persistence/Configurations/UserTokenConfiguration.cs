@@ -29,7 +29,10 @@ public sealed class UserTokenConfiguration : IEntityTypeConfiguration<UserToken>
         builder.Property(token => token.ExpiresAt)
             .IsRequired();
 
-        builder.Property(token => token.UsedAt);
+        // Optimistic concurrency: marking a token as used updates it WHERE UsedAt is still
+        // NULL, so two requests racing with the same single-use token cannot both succeed.
+        builder.Property(token => token.UsedAt)
+            .IsConcurrencyToken();
 
         builder.HasIndex(token => new { token.TokenHash, token.Type });
 
