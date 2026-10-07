@@ -35,7 +35,7 @@ Las capturas son de la aplicación real y se regeneran con Playwright (`frontend
 * Registro con confirmación por email (y reenvío del enlace), login, cambio y recuperación de contraseña (correos reales con Brevo).
 * Búsqueda de ediciones en Comic Vine, vista previa e importación con todos sus tomos.
 * Colecciones por usuario: marcar tomos uno a uno o todos, ver pendientes de todas las colecciones, eliminar colecciones.
-* Sincronización automática con Comic Vine para incorporar tomos nuevos.
+* Sincronización diaria con Comic Vine, por lotes de 100 ediciones, para incorporar tomos nuevos; los anunciados aparecen en «Próximamente».
 * API con errores `ProblemDetails`, rate limiting y health check; frontend responsive.
 
 ## Stack tecnológico
@@ -151,7 +151,7 @@ Ejemplos:
 * Importación de volúmenes desde Comic Vine.
 * Marcado de tomos como comprados.
 * Eliminación de colecciones.
-* Sincronización de colecciones.
+* Sincronización del catálogo con Comic Vine.
 * Consulta de tomos pendientes.
 
 Esta capa define las interfaces necesarias, pero no depende de detalles técnicos de infraestructura.
@@ -242,30 +242,31 @@ Esto permite:
 * Centralizar errores.
 * Evitar lógica de integración externa en Angular.
 
-## Sincronización automática de colecciones
+## Sincronización del catálogo
 
-Manga Tracker incluye sincronización de colecciones con Comic Vine.
+Las ediciones son compartidas: si diez usuarios coleccionan la misma edición de One Piece, hay una sola edición en la base de datos. Por eso la sincronización no la dispara cada usuario, sino un proceso en segundo plano ([`SyncCatalogHandler`](src/MangaTracker.Application/Catalog/SyncCatalog/SyncCatalogHandler.cs)) que se ejecuta poco después de arrancar la API y luego cada 24 horas (`CatalogSync:IntervalHours`):
 
-Cuando el usuario entra en su estantería, la pantalla carga rápido usando los datos locales y, en paralelo, lanza una sincronización automática contra el backend. Solo avisa si han llegado tomos nuevos.
+1. Lee todas las ediciones que colecciona al menos un usuario, con cuántos tomos tiene guardados cada una (una consulta).
+2. Pregunta a Comic Vine cuántos tomos tiene cada volumen, **100 volúmenes por petición** (`volumes/?filter=id:1|2|3…&field_list=id,count_of_issues`).
+3. Solo las ediciones con más tomos en Comic Vine que en la base de datos se cargan y piden sus tomos nuevos (una petición por cada 100 tomos). Así también se completan las importaciones que se quedaron a medias.
+4. Cada edición se guarda por separado: un fallo no pierde las anteriores. Si Comic Vine cae a mitad, se para y lo que falte se hace en la siguiente pasada.
 
-El backend:
+Con 1.000 ediciones y ninguna novedad, una pasada cuesta **10 peticiones**. La sincronización por usuario que había antes costaba una petición por edición y visita, con un tope de 5 ediciones por visita.
 
-* Revisa las colecciones del usuario.
-* Comprueba qué ediciones necesitan sincronización.
-* Evita sincronizar repetidamente ediciones actualizadas recientemente.
-* Consulta Comic Vine si es necesario.
-* Añade tomos nuevos que no existían en la base de datos.
-* Actualiza contadores de tomos.
-* Permite que los nuevos tomos aparezcan automáticamente como pendientes.
-
-Esto permite cubrir casos como:
+No se usa el `date_last_updated` de Comic Vine para detectar novedades: [no cambia cuando se añade un tomo a un volumen](https://comicvine.gamespot.com/forums/api-developers-2334/) (comprobado: el volumen de One Piece tiene 116 tomos y su fecha de actualización es de 2019).
 
 ```txt
-El usuario tiene One Piece importado con 115 tomos.
-Comic Vine añade el tomo 116.
-La aplicación sincroniza la edición.
-El tomo 116 aparece como pendiente.
+Comic Vine añade el tomo 116 de One Piece.
+La siguiente pasada ve 116 tomos en Comic Vine y 115 guardados.
+Solo esa edición pide sus tomos nuevos.
+El tomo 116 aparece en «Me faltan» de todos los que la coleccionan.
 ```
+
+Los tomos anunciados con fecha de venta futura aparecen en «Me faltan» bajo **Próximamente**, separados de los que ya se pueden comprar.
+
+### Caché de Comic Vine
+
+La ficha de un volumen se guarda 10 minutos en memoria y cada búsqueda 30: la vista previa y la importación que viene justo después ya no piden lo mismo dos veces, y las búsquedas repetidas no gastan peticiones. La sincronización no depende de la caché, porque compara recuentos de tomos que pide siempre en el momento.
 
 ## Autenticación y correos
 
@@ -331,14 +332,12 @@ Ejemplos:
 * Búsqueda en catálogo.
 * Vista previa de volúmenes.
 * Importación desde Comic Vine.
-* Sincronización de colecciones.
 
 Esto ayuda a proteger la API y a no abusar de Comic Vine. Además, el cliente de Comic Vine respeta por su cuenta el ritmo que exige el proveedor (una petición por segundo para todo el proceso), con independencia de cuántos usuarios haya.
 
 La partición depende del tipo de endpoint:
 
-* La sincronización tiene su propio límite: la pantalla de colecciones sincroniza en cada visita y, si compartiera cupo con la importación, navegar por la app agotaría las importaciones del minuto.
-* Endpoints autenticados (catálogo, importación, sincronización): límite por usuario, a partir del id del JWT. No se puede falsificar y no depende de los proxies que haya delante de la API.
+* Endpoints autenticados (catálogo, importación): límite por usuario, a partir del id del JWT. No se puede falsificar y no depende de los proxies que haya delante de la API.
 * Endpoints anónimos (login, registro, recuperación de contraseña): límite por IP del cliente.
 
 Para que la IP sea la del cliente real detrás de un proxy, la cabecera `X-Forwarded-For` solo se acepta de los proxies configurados en `ForwardedHeaders:KnownProxies` / `ForwardedHeaders:KnownNetworks`. Si no hay ninguno configurado, la cabecera se ignora por completo: en ASP.NET, dejar esas listas vacías significa confiar en cualquiera, y eso permitiría a un atacante inventarse una IP nueva en cada petición para saltarse el límite.
@@ -498,7 +497,7 @@ dotnet test
 
 Hay tres tipos:
 
-* **Unitarios**: handlers de Application con dependencias sustituidas (NSubstitute), validación de configuración, `ComicVineClient` con un `HttpMessageHandler` falso y partición del rate limiting. El tiempo se inyecta con `TimeProvider` para poder probar cooldowns y ordenación.
+* **Unitarios**: handlers de Application con dependencias sustituidas (NSubstitute), validación de configuración, `ComicVineClient` con un `HttpMessageHandler` falso y partición del rate limiting. El tiempo se inyecta con `TimeProvider` (y en el turnero de Comic Vine, un reloj manual) para probar esperas y ordenación sin depender del reloj real.
 * **Integración** (`tests/MangaTracker.Tests/Integration`): levantan la API real en memoria con `WebApplicationFactory` contra un SQL Server de verdad. Cada ejecución crea una base de datos nueva aplicando las migraciones y la borra al terminar. Solo se sustituyen los servicios externos (correo y Comic Vine). Cubren el flujo de autenticación (registro, confirmación, login, recuperación y cambio de contraseña, tokens de un solo uso, no enumeración de usuarios) y la autorización entre usuarios (un usuario no puede leer ni modificar colecciones de otro aunque conozca su id).
 
 Los tests de integración usan LocalDB por defecto. Para usar otro servidor, define `MANGATRACKER_TEST_SQLSERVER` con una connection string sin base de datos. No se usa SQLite porque EF Core no traduce a SQLite las comparaciones de `DateTimeOffset` de las consultas de tokens.

@@ -3,6 +3,7 @@ using System.Text;
 using AwesomeAssertions;
 using MangaTracker.Application.Common.Exceptions;
 using MangaTracker.Infrastructure.ExternalServices.ComicVine;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 
 namespace MangaTracker.Tests.Infrastructure.ComicVine;
@@ -189,6 +190,65 @@ public sealed class ComicVineClientTests
     }
 
     [Fact]
+    public async Task GetVolumeIssueCountsAsync_should_ask_for_up_to_100_volumes_per_request()
+    {
+        var handler = new RecordingHandler(request =>
+        {
+            // Answer with every requested id: "filter=id:1|2|3..." (the "|" may arrive escaped).
+            var filter = Uri.UnescapeDataString(request.RequestUri!.Query).Split("filter=id:")[1].Split('&')[0];
+            var results = string.Join(",", filter.Split('|').Select(id => $$"""{ "id": {{id}}, "count_of_issues": {{int.Parse(id) * 2}} }"""));
+            return Json($$"""{ "status_code": 1, "results": [{{results}}] }""");
+        });
+
+        var counts = await CreateClient(handler).GetVolumeIssueCountsAsync([.. Enumerable.Range(1, 150), 1]);
+
+        counts.Should().HaveCount(150, "duplicates are asked for once");
+        counts[7].Should().Be(14);
+        handler.Requests.Should().HaveCount(2, "150 volumes fit in two pages of 100");
+        handler.Requests.Should().AllSatisfy(request =>
+        {
+            request.AbsolutePath.Should().Be("/api/volumes/");
+            request.Query.Should().Contain("field_list=id,count_of_issues");
+        });
+    }
+
+    [Fact]
+    public async Task A_volume_previewed_and_then_imported_should_be_fetched_once()
+    {
+        var handler = new RecordingHandler();
+        var client = CreateClient(handler);
+
+        await client.GetVolumeByApiDetailUrlAsync(ValidUrl);
+        await client.GetVolumeByApiDetailUrlAsync(ValidUrl);
+
+        handler.Requests.Should().ContainSingle("the second read comes from the cache");
+    }
+
+    [Fact]
+    public async Task A_repeated_search_should_be_answered_from_the_cache()
+    {
+        var handler = new RecordingHandler(_ => Json("""{ "results": [] }"""));
+        var client = CreateClient(handler);
+
+        await client.SearchVolumesAsync("Berserk");
+        await client.SearchVolumesAsync("  berserk ");
+
+        handler.Requests.Should().ContainSingle("the query is normalized before looking it up");
+    }
+
+    [Fact]
+    public async Task A_volume_that_was_not_found_should_not_be_cached()
+    {
+        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.NotFound));
+        var client = CreateClient(handler);
+
+        await client.GetVolumeByApiDetailUrlAsync(ValidUrl);
+        await client.GetVolumeByApiDetailUrlAsync(ValidUrl);
+
+        handler.Requests.Should().HaveCount(2);
+    }
+
+    [Fact]
     public async Task Object_not_found_should_be_null_even_though_comic_vine_answers_200()
     {
         // What Comic Vine really sends for an unknown id: HTTP 200, status_code 101 and
@@ -227,7 +287,8 @@ public sealed class ComicVineClientTests
 
         return new ComicVineClient(
             httpClient,
-            Options.Create(new ComicVineOptions { ApiKey = ApiKey }));
+            Options.Create(new ComicVineOptions { ApiKey = ApiKey }),
+            new MemoryCache(new MemoryCacheOptions()));
     }
 
     private sealed class RecordingHandler : HttpMessageHandler

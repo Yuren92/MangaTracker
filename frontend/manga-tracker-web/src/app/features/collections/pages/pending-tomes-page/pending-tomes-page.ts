@@ -6,6 +6,7 @@ import { getApiErrorMessage } from '../../../../core/http/api-error';
 import { AppAlert } from '../../../../shared/components/app-alert/app-alert';
 import { PendingTome } from '../../models/collections.models';
 import { CollectionsApi } from '../../services/collections-api';
+import { localToday, splitByRelease } from './release-split';
 
 interface PendingSeries {
   collectionId: string;
@@ -31,12 +32,17 @@ export class PendingTomesPage implements OnInit {
   // The last tome marked from this page, so a mistaken click can be undone.
   readonly lastMarked = signal<PendingTome | null>(null);
 
+  // Comic Vine lists tomes before they go on sale: those are "coming soon", not missing.
+  private readonly split = computed(() => splitByRelease(this.pendingTomes(), localToday()));
+  readonly released = computed(() => this.split().released);
+  readonly upcoming = computed(() => this.split().upcoming);
+
   // The API returns tomes ordered by series and number; grouping keeps that order,
   // so the first tome of each series is the next one to buy.
   readonly series = computed<PendingSeries[]>(() => {
     const groups = new Map<string, PendingSeries>();
 
-    for (const tome of this.pendingTomes()) {
+    for (const tome of this.released()) {
       const group = groups.get(tome.collectionId) ?? {
         collectionId: tome.collectionId,
         title: tome.seriesTitle,

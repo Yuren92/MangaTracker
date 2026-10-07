@@ -20,6 +20,8 @@ public sealed class FakeComicVineClient : IComicVineClient
     // One issue has no number (a special or one-shot), which Comic Vine sends as null.
     public const string UnnumberedVolumeUrl = "https://comicvine.gamespot.com/api/volume/4050-6/";
     public const string SlowVolumeUrl = "https://comicvine.gamespot.com/api/volume/4050-3/";
+    // Only used by the catalog sync tests, which publish new issues in it.
+    public const string GrowingVolumeUrl = "https://comicvine.gamespot.com/api/volume/4050-7/";
 
     private readonly Dictionary<string, ComicVineVolumeDetailDto> _volumes = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -27,7 +29,8 @@ public sealed class FakeComicVineClient : IComicVineClient
         [BerserkUrl] = Volume(2, "Berserk", BerserkUrl, firstIssue: 11),
         [SlowVolumeUrl] = Volume(3, "Naruto", SlowVolumeUrl, firstIssue: 21),
         [VariantVolumeUrl] = VariantVolume(),
-        [UnnumberedVolumeUrl] = UnnumberedVolume()
+        [UnnumberedVolumeUrl] = UnnumberedVolume(),
+        [GrowingVolumeUrl] = Volume(7, "Dorohedoro", GrowingVolumeUrl, firstIssue: 51)
     };
 
     public Task<IReadOnlyCollection<ComicVineVolumeSearchResultDto>> SearchVolumesAsync(
@@ -55,6 +58,27 @@ public sealed class FakeComicVineClient : IComicVineClient
         }
 
         return _volumes.GetValueOrDefault(apiDetailUrl);
+    }
+
+    public Task<IReadOnlyDictionary<int, int>> GetVolumeIssueCountsAsync(
+        IReadOnlyCollection<int> comicVineVolumeIds, CancellationToken cancellationToken = default)
+    {
+        IReadOnlyDictionary<int, int> counts = _volumes.Values
+            .Where(volume => comicVineVolumeIds.Contains(volume.ComicVineVolumeId))
+            .ToDictionary(volume => volume.ComicVineVolumeId, volume => volume.Issues.Count);
+
+        return Task.FromResult(counts);
+    }
+
+    // Publishes one more issue in a volume, as Comic Vine does when a new tome comes out.
+    public void AddIssue(string volumeUrl, ComicVineIssueSummaryDto issue)
+    {
+        var volume = _volumes[volumeUrl];
+        _volumes[volumeUrl] = volume with
+        {
+            CountOfIssues = volume.Issues.Count + 1,
+            Issues = [.. volume.Issues, issue]
+        };
     }
 
     public Task<IReadOnlyCollection<ComicVineIssueDetailDto>> GetVolumeIssuesAsync(

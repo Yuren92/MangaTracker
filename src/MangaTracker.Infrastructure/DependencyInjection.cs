@@ -111,7 +111,17 @@ public static class DependencyInjection
                 "Comic Vine API key is required.")
             .ValidateOnStart();
 
+        services.AddMemoryCache();
         services.AddSingleton<ComicVineRequestGate>();
+
+        services
+            .AddOptions<CatalogSyncOptions>()
+            .Bind(configuration.GetSection(CatalogSyncOptions.SectionName))
+            .Validate(
+                options => options.IntervalHours is >= 1 and <= 168,
+                "CatalogSync:IntervalHours must be between 1 and 168.")
+            .ValidateOnStart();
+        services.AddHostedService<CatalogSyncBackgroundService>();
         services.AddTransient<ComicVineThrottlingHandler>();
 
         var comicVineHttpClient = services.AddHttpClient<IComicVineClient, ComicVineClient>((serviceProvider, client) =>

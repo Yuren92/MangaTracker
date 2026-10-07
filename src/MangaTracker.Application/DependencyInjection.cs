@@ -8,6 +8,7 @@ using MangaTracker.Application.Auth.ResendConfirmationEmail;
 using MangaTracker.Application.Auth.ResetPassword;
 using MangaTracker.Application.Catalog.PreviewComicVineVolume;
 using MangaTracker.Application.Catalog.SearchCatalog;
+using MangaTracker.Application.Catalog.SyncCatalog;
 using MangaTracker.Application.Collections.DeleteUserCollection;
 using MangaTracker.Application.Collections.GetPendingTomes;
 using MangaTracker.Application.Collections.GetUserCollectionDetail;
@@ -15,7 +16,6 @@ using MangaTracker.Application.Collections.GetUserCollections;
 using MangaTracker.Application.Collections.ImportComicVineVolume;
 using MangaTracker.Application.Collections.MarkAllTomesAsOwned;
 using MangaTracker.Application.Collections.MarkTomeAsOwned;
-using MangaTracker.Application.Collections.SyncUserCollections;
 using MangaTracker.Application.Collections.UnmarkTomeAsOwned;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -46,7 +46,7 @@ public static class DependencyInjection
         services.AddScoped<ImportComicVineVolumeHandler>();
         services.AddScoped<MarkAllTomesAsOwnedHandler>();
         services.AddScoped<DeleteUserCollectionHandler>();
-        services.AddScoped<SyncUserCollectionsHandler>();
+        services.AddScoped<SyncCatalogHandler>();
 
         return services;
     }

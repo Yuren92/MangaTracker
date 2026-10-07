@@ -9,7 +9,6 @@ import {
   PendingTomesResponse,
   TomeOwnershipResponse,
   MarkAllTomesAsOwnedResponse,
-  SyncCollectionsResponse,
   UserCollectionDetail
 } from '../models/collections.models';
 
@@ -30,13 +29,6 @@ export class CollectionsApi {
   getCollections() {
     return this.http.get<GetUserCollectionsResponse>(
       `${this.apiUrl}/api/collections`
-    );
-  }
-
-  syncCollections() {
-    return this.http.post<SyncCollectionsResponse>(
-      `${this.apiUrl}/api/collections/sync`,
-      {}
     );
   }
 
