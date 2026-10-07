@@ -1,3 +1,4 @@
+import { DatePipe } from '@angular/common';
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { PendingTome } from '../../models/collections.models';
@@ -6,7 +7,7 @@ import { getApiErrorMessage } from '../../../../core/http/api-error';
 
 @Component({
   selector: 'app-pending-tomes-page',
-  imports: [RouterLink],
+  imports: [RouterLink, DatePipe],
   templateUrl: './pending-tomes-page.html',
   styleUrl: './pending-tomes-page.scss'
 })

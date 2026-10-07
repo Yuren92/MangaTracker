@@ -1,6 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+
 import { getApiErrorMessage } from '../../../../core/http/api-error';
 import { AppAlert } from '../../../../shared/components/app-alert/app-alert';
 import { AuthApi } from '../../services/auth-api';
@@ -9,7 +10,7 @@ import { AuthApi } from '../../services/auth-api';
   selector: 'app-forgot-password-page',
   imports: [ReactiveFormsModule, RouterLink, AppAlert],
   templateUrl: './forgot-password-page.html',
-  styleUrl: './forgot-password-page.scss'
+  styleUrl: '../../auth-card.scss'
 })
 export class ForgotPasswordPage {
   private readonly formBuilder = inject(NonNullableFormBuilder);
@@ -34,8 +35,11 @@ export class ForgotPasswordPage {
     this.successMessage.set(null);
 
     this.authApi.forgotPassword(this.form.controls.email.value).subscribe({
-      next: response => {
-        this.successMessage.set(response.message);
+      next: () => {
+        // Same answer for every email, so the page cannot be used to find accounts.
+        this.successMessage.set(
+          'Si el email tiene una cuenta, te hemos enviado un enlace para cambiar la contraseña.'
+        );
         this.isSubmitting.set(false);
       },
       error: error => {

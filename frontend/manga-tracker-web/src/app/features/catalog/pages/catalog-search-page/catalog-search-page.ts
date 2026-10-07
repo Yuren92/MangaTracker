@@ -1,14 +1,16 @@
 import { Component, computed, ElementRef, inject, OnInit, signal, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+
+import { getApiErrorMessage } from '../../../../core/http/api-error';
+import { AppAlert } from '../../../../shared/components/app-alert/app-alert';
+import { CollectionsApi } from '../../../collections/services/collections-api';
 import { CatalogSearchResult, ComicVineVolumePreview } from '../../models/catalog.models';
 import { CatalogApi } from '../../services/catalog-api';
-import { CollectionsApi } from '../../../collections/services/collections-api';
-import { getApiErrorMessage } from '../../../../core/http/api-error';
 
 @Component({
   selector: 'app-catalog-search-page',
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, AppAlert],
   templateUrl: './catalog-search-page.html',
   styleUrl: './catalog-search-page.scss'
 })
@@ -132,20 +134,27 @@ export class CatalogSearchPage implements OnInit {
       next: result => {
         this.importedCollectionId.set(result.userCollectionId);
 
-        this.importedComicVineVolumeIds.update(current => {
-          const next = new Set(current);
-          next.add(result.comicVineVolumeId);
-          return next;
-        });
+        // A partial import keeps the button enabled so it can be resumed right away.
+        if (result.isCompleted) {
+          this.importedComicVineVolumeIds.update(current => {
+            const next = new Set(current);
+            next.add(result.comicVineVolumeId);
+            return next;
+          });
 
-        this.importedCollectionIdsByVolumeId.update(current => {
-          const next = new Map(current);
-          next.set(result.comicVineVolumeId, result.userCollectionId);
-          return next;
-        });
+          this.importedCollectionIdsByVolumeId.update(current => {
+            const next = new Map(current);
+            next.set(result.comicVineVolumeId, result.userCollectionId);
+            return next;
+          });
+        }
 
+        // A partial import is kept and resumed: importing again only fetches what is missing.
         this.importSuccessMessage.set(
-          `${result.title} se ha importado correctamente. Tomos importados: ${result.importedTomes}.`
+          result.isCompleted
+            ? `${result.title} se ha importado con ${result.importedTomes} tomos.`
+            : `${result.title} se ha importado a medias (${result.importedTomes} de ${result.totalIssues} tomos). ` +
+              'Vuelve a importarla para completar los que faltan; la sincronización también lo hará.'
         );
 
         this.isImporting.set(false);

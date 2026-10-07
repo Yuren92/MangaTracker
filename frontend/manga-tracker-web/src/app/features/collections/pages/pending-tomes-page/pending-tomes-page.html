@@ -1,7 +1,7 @@
 <section class="page">
   <header class="page-header">
     <div>
-      <p class="eyebrow">Comic Vine</p>
+      <p class="eyebrow">Todas tus colecciones</p>
       <h1>Tomos pendientes</h1>
       <p class="subtitle">
         Revisa todos los tomos que todavía no has marcado como comprados.
@@ -44,7 +44,12 @@
         <article class="tome-card">
           <div class="cover">
             @if (tome.imageUrl) {
-              <img [src]="tome.imageUrl" [alt]="tome.tomeTitle ?? tome.seriesTitle" />
+              <img
+                [src]="tome.imageUrl"
+                [alt]="'Portada del tomo ' + (tome.issueNumber || 'sin número') + ' de ' + tome.seriesTitle"
+                loading="lazy"
+                decoding="async"
+              />
             } @else {
               <div class="no-image">Sin imagen</div>
             }
@@ -70,7 +75,7 @@
 
               @if (tome.storeDate) {
                 <p class="date">
-                  Publicado: {{ tome.storeDate }}
+                  Publicado: {{ tome.storeDate | date: 'longDate' }}
                 </p>
               }
             </div>

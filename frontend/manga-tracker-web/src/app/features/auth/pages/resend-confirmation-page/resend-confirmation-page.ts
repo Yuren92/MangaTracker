@@ -1,31 +1,32 @@
 import { Component, inject, signal } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 
 import { getApiErrorMessage } from '../../../../core/http/api-error';
 import { AppAlert } from '../../../../shared/components/app-alert/app-alert';
-import { PASSWORD_RULES_HINT, strongPasswordValidator } from '../../../../shared/validators/password-validator';
 import { AuthApi } from '../../services/auth-api';
 
 @Component({
-  selector: 'app-register-page',
+  selector: 'app-resend-confirmation-page',
   imports: [ReactiveFormsModule, RouterLink, AppAlert],
-  templateUrl: './register-page.html',
+  templateUrl: './resend-confirmation-page.html',
   styleUrl: '../../auth-card.scss'
 })
-export class RegisterPage {
+export class ResendConfirmationPage {
   private readonly formBuilder = inject(NonNullableFormBuilder);
   private readonly authApi = inject(AuthApi);
-
-  readonly passwordRulesHint = PASSWORD_RULES_HINT;
+  private readonly route = inject(ActivatedRoute);
 
   readonly isSubmitting = signal(false);
   readonly errorMessage = signal<string | null>(null);
   readonly successMessage = signal<string | null>(null);
 
+  // Pre-filled when coming from a login attempt with an unconfirmed email.
   readonly form = this.formBuilder.group({
-    email: ['', [Validators.required, Validators.email]],
-    password: ['', [Validators.required, strongPasswordValidator]]
+    email: [
+      this.route.snapshot.queryParamMap.get('email') ?? '',
+      [Validators.required, Validators.email]
+    ]
   });
 
   submit(): void {
@@ -38,19 +39,17 @@ export class RegisterPage {
     this.errorMessage.set(null);
     this.successMessage.set(null);
 
-    this.authApi.register(this.form.getRawValue()).subscribe({
+    this.authApi.resendConfirmationEmail(this.form.controls.email.value).subscribe({
       next: () => {
-        // The API answers the same whether or not the email already had an account.
+        // Same answer for every email, so the page cannot be used to find accounts.
         this.successMessage.set(
-          'Si el email se puede usar, te hemos enviado un correo con los siguientes pasos.'
+          'Si el email tiene una cuenta pendiente de confirmar, te hemos enviado un enlace nuevo.'
         );
-
-        this.form.reset();
         this.isSubmitting.set(false);
       },
       error: error => {
         this.errorMessage.set(
-          getApiErrorMessage(error, 'No se ha podido crear la cuenta.')
+          getApiErrorMessage(error, 'No se ha podido enviar el enlace de confirmación.')
         );
 
         this.isSubmitting.set(false);

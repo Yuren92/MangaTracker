@@ -1,9 +1,3 @@
-.page {
-  max-width: 1120px;
-  margin: 0 auto;
-  padding: 32px 20px;
-}
-
 .back-link {
   display: inline-block;
   margin-bottom: 18px;
@@ -21,7 +15,7 @@
   background: white;
   border-radius: 18px;
   padding: 18px;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  box-shadow: var(--card-shadow);
 }
 
 .alert.error {
@@ -37,7 +31,7 @@
   display: grid;
   grid-template-columns: 190px 1fr;
   gap: 22px;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  box-shadow: var(--card-shadow);
   margin-bottom: 28px;
 }
 
@@ -155,7 +149,7 @@ h1 {
   background: white;
   border-radius: 18px;
   overflow: hidden;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  box-shadow: var(--card-shadow);
   display: flex;
   flex-direction: column;
   border: 2px solid transparent;

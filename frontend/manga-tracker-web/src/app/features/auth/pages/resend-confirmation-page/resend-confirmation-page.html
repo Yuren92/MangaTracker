@@ -1,8 +1,9 @@
 <section class="auth-card">
-  <h1>Recuperar contraseña</h1>
+  <h1>Reenviar confirmación</h1>
 
   <p class="subtitle">
-    Introduce tu email y te enviaremos un enlace para cambiar tu contraseña.
+    Si no te ha llegado el correo para confirmar tu cuenta o el enlace ha caducado,
+    te enviamos otro.
   </p>
 
   <app-alert type="error" [message]="errorMessage()" />
@@ -30,7 +31,7 @@
       @if (isSubmitting()) {
         Enviando...
       } @else {
-        Enviar enlace
+        Enviar enlace de confirmación
       }
     </button>
   </form>

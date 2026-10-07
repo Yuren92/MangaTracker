@@ -1,5 +1,5 @@
 @if (message()) {
-  <div class="alert" [class]="type()">
+  <div class="alert" [class]="type()" [attr.role]="type() === 'error' ? 'alert' : 'status'">
     {{ message() }}
   </div>
 }

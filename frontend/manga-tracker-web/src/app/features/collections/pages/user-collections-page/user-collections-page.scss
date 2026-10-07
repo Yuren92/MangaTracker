@@ -1,9 +1,3 @@
-.page {
-  max-width: 1120px;
-  margin: 0 auto;
-  padding: 32px 20px;
-}
-
 .page-header {
   display: flex;
   justify-content: space-between;
@@ -61,7 +55,7 @@ h1 {
   background: white;
   border-radius: 18px;
   padding: 22px;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  box-shadow: var(--card-shadow);
 }
 
 .alert.error {
@@ -104,7 +98,7 @@ h1 {
   background: white;
   border-radius: 18px;
   overflow: hidden;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  box-shadow: var(--card-shadow);
   display: flex;
   flex-direction: column;
 }

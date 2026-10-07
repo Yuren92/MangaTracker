@@ -1,7 +1,7 @@
 <section class="page">
   <header class="page-header">
     <div>
-      <p class="eyebrow">Comic Vine</p>
+      <p class="eyebrow">Tu biblioteca</p>
       <h1>Mis colecciones</h1>
       <p class="subtitle">
         Consulta las ediciones que sigues y revisa tus tomos comprados y pendientes.
@@ -33,7 +33,7 @@
 
   @if (!isLoading() && collections().length === 0 && !errorMessage()) {
     <div class="empty-state">
-      <h2>Aún no tienes colecciones nuevas</h2>
+      <h2>Aún no tienes colecciones</h2>
       <p>
         Busca una edición en el catálogo de Comic Vine para añadirla a tu colección.
       </p>
@@ -50,7 +50,12 @@
         <article class="collection-card">
           <div class="cover">
             @if (collection.imageUrl) {
-              <img [src]="collection.imageUrl" [alt]="collection.title" />
+              <img
+                [src]="collection.imageUrl"
+                [alt]="'Portada de ' + collection.title"
+                loading="lazy"
+                decoding="async"
+              />
             } @else {
               <div class="no-image">Sin imagen</div>
             }

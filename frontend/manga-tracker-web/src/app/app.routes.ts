@@ -1,77 +1,96 @@
 import { Routes } from '@angular/router';
-import { MainLayout } from './core/layout/main-layout/main-layout';
-import { LoginPage } from './features/auth/pages/login-page/login-page';
-import { RegisterPage } from './features/auth/pages/register-page/register-page';
-import { ForgotPasswordPage } from './features/auth/pages/forgot-password-page/forgot-password-page';
+
 import { authGuard } from './core/auth/auth-guard';
-import { ConfirmEmailPage } from './features/auth/pages/confirm-email-page/confirm-email-page';
-import { ResetPasswordPage } from './features/auth/pages/reset-password-page/reset-password-page';
-import { ChangePasswordPage } from './features/auth/pages/change-password-page/change-password-page';
 import { guestGuard } from './core/auth/guest-guard';
-import { CatalogSearchPage } from './features/catalog/pages/catalog-search-page/catalog-search-page';
-import { UserCollectionDetailPage } from './features/collections/pages/user-collection-detail-page/user-collection-detail-page';
-import { UserCollectionsPage } from './features/collections/pages/user-collections-page/user-collections-page';
-import { PendingTomesPage } from './features/collections/pages/pending-tomes-page/pending-tomes-page';
+import { MainLayout } from './core/layout/main-layout/main-layout';
 
-
+// Every page is loaded on demand: the initial bundle only carries the layout, and each
+// screen is downloaded the first time it is visited.
 export const routes: Routes = [
-     {
+  {
     path: '',
     component: MainLayout,
     children: [
       {
         path: '',
         pathMatch: 'full',
-        redirectTo: 'collections'      
+        redirectTo: 'collections'
       },
       {
         path: 'login',
-        component: LoginPage,
-        canActivate: [guestGuard]
+        title: 'Iniciar sesión · Manga Tracker',
+        canActivate: [guestGuard],
+        loadComponent: () =>
+          import('./features/auth/pages/login-page/login-page').then(m => m.LoginPage)
       },
       {
         path: 'register',
-        component: RegisterPage,
-        canActivate: [guestGuard]
+        title: 'Crear cuenta · Manga Tracker',
+        canActivate: [guestGuard],
+        loadComponent: () =>
+          import('./features/auth/pages/register-page/register-page').then(m => m.RegisterPage)
       },
       {
         path: 'forgot-password',
-        component: ForgotPasswordPage,
-        canActivate: [guestGuard]
+        title: 'Recuperar contraseña · Manga Tracker',
+        canActivate: [guestGuard],
+        loadComponent: () =>
+          import('./features/auth/pages/forgot-password-page/forgot-password-page').then(m => m.ForgotPasswordPage)
+      },
+      {
+        path: 'resend-confirmation',
+        title: 'Reenviar confirmación · Manga Tracker',
+        canActivate: [guestGuard],
+        loadComponent: () =>
+          import('./features/auth/pages/resend-confirmation-page/resend-confirmation-page').then(m => m.ResendConfirmationPage)
       },
       {
         path: 'confirm-email',
-        component: ConfirmEmailPage
+        title: 'Confirmar email · Manga Tracker',
+        loadComponent: () =>
+          import('./features/auth/pages/confirm-email-page/confirm-email-page').then(m => m.ConfirmEmailPage)
       },
       {
         path: 'reset-password',
-        component: ResetPasswordPage,
-        canActivate: [guestGuard]
+        title: 'Restablecer contraseña · Manga Tracker',
+        canActivate: [guestGuard],
+        loadComponent: () =>
+          import('./features/auth/pages/reset-password-page/reset-password-page').then(m => m.ResetPasswordPage)
       },
       {
         path: 'change-password',
-        component: ChangePasswordPage,
-        canActivate: [authGuard]
+        title: 'Cambiar contraseña · Manga Tracker',
+        canActivate: [authGuard],
+        loadComponent: () =>
+          import('./features/auth/pages/change-password-page/change-password-page').then(m => m.ChangePasswordPage)
       },
       {
         path: 'collections/pending-tomes',
-        component: PendingTomesPage,
-        canActivate: [authGuard]
+        title: 'Tomos pendientes · Manga Tracker',
+        canActivate: [authGuard],
+        loadComponent: () =>
+          import('./features/collections/pages/pending-tomes-page/pending-tomes-page').then(m => m.PendingTomesPage)
       },
       {
         path: 'collections/:collectionId',
-        component: UserCollectionDetailPage,
-        canActivate: [authGuard]
+        title: 'Colección · Manga Tracker',
+        canActivate: [authGuard],
+        loadComponent: () =>
+          import('./features/collections/pages/user-collection-detail-page/user-collection-detail-page').then(m => m.UserCollectionDetailPage)
       },
       {
         path: 'collections',
-        component: UserCollectionsPage,
-        canActivate: [authGuard]
+        title: 'Mis colecciones · Manga Tracker',
+        canActivate: [authGuard],
+        loadComponent: () =>
+          import('./features/collections/pages/user-collections-page/user-collections-page').then(m => m.UserCollectionsPage)
       },
       {
         path: 'catalog/search',
-        component: CatalogSearchPage,
-        canActivate: [authGuard]
+        title: 'Buscar series · Manga Tracker',
+        canActivate: [authGuard],
+        loadComponent: () =>
+          import('./features/catalog/pages/catalog-search-page/catalog-search-page').then(m => m.CatalogSearchPage)
       }
     ]
   },
