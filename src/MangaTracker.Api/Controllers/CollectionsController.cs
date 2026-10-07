@@ -57,7 +57,7 @@ public sealed class CollectionsController : ControllerBase
 
     [HttpGet]
     public async Task<ActionResult<GetUserCollectionsResult>> GetUserCollections(
-    CancellationToken cancellationToken)
+        CancellationToken cancellationToken)
     {
         var result = await _getUserCollectionsHandler.HandleAsync(
             new GetUserCollectionsQuery(_currentUserService.UserId),
@@ -68,8 +68,8 @@ public sealed class CollectionsController : ControllerBase
 
     [HttpGet("{collectionId:guid}")]
     public async Task<ActionResult<GetUserCollectionDetailResult>> GetUserCollectionDetail(
-    Guid collectionId,
-    CancellationToken cancellationToken)
+        Guid collectionId,
+        CancellationToken cancellationToken)
     {
         var result = await _getUserCollectionDetailHandler.HandleAsync(
             new GetUserCollectionDetailQuery(
@@ -82,9 +82,9 @@ public sealed class CollectionsController : ControllerBase
 
     [HttpPost("{collectionId:guid}/tomes/{tomeId:guid}/owned")]
     public async Task<ActionResult<MarkTomeAsOwnedResult>> MarkTomeAsOwned(
-    Guid collectionId,
-    Guid tomeId,
-    CancellationToken cancellationToken)
+        Guid collectionId,
+        Guid tomeId,
+        CancellationToken cancellationToken)
     {
         var result = await _markTomeAsOwnedHandler.HandleAsync(
             new MarkTomeAsOwnedCommand(
@@ -114,7 +114,7 @@ public sealed class CollectionsController : ControllerBase
 
     [HttpGet("pending-tomes")]
     public async Task<ActionResult<GetPendingTomesResult>> GetPendingTomes(
-    CancellationToken cancellationToken)
+        CancellationToken cancellationToken)
     {
         var result = await _getPendingTomesHandler.HandleAsync(
             new GetPendingTomesQuery(_currentUserService.UserId),
@@ -126,8 +126,8 @@ public sealed class CollectionsController : ControllerBase
     [EnableRateLimiting(RateLimitPolicies.ComicVineImport)]
     [HttpPost("import-comic-vine-volume")]
     public async Task<ActionResult<ImportComicVineVolumeResult>> ImportComicVineVolume(
-    [FromBody] ImportComicVineVolumeRequest request,
-    CancellationToken cancellationToken)
+        [FromBody] ImportComicVineVolumeRequest request,
+        CancellationToken cancellationToken)
     {
         var result = await _importComicVineVolumeHandler.HandleAsync(
             new ImportComicVineVolumeCommand(
@@ -154,8 +154,8 @@ public sealed class CollectionsController : ControllerBase
 
     [HttpDelete("{collectionId:guid}")]
     public async Task<ActionResult<DeleteUserCollectionResult>> DeleteUserCollection(
-    Guid collectionId,
-    CancellationToken cancellationToken)
+        Guid collectionId,
+        CancellationToken cancellationToken)
     {
         var result = await _deleteUserCollectionHandler.HandleAsync(
             new DeleteUserCollectionCommand(
@@ -166,10 +166,10 @@ public sealed class CollectionsController : ControllerBase
         return Ok(result);
     }
 
-    [EnableRateLimiting(RateLimitPolicies.ComicVineImport)]
+    [EnableRateLimiting(RateLimitPolicies.CollectionSync)]
     [HttpPost("sync")]
     public async Task<ActionResult<SyncUserCollectionsResult>> SyncUserCollections(
-    CancellationToken cancellationToken)
+        CancellationToken cancellationToken)
     {
         var result = await _syncUserCollectionsHandler.HandleAsync(
             new SyncUserCollectionsCommand(_currentUserService.UserId),

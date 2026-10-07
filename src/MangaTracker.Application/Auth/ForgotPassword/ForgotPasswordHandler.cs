@@ -74,7 +74,17 @@ public sealed class ForgotPasswordHandler
             expiresAt: _timeProvider.GetUtcNow().Add(PasswordResetTokenLifetime));
 
         await _userTokenRepository.AddAsync(userToken, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (ConcurrentUpdateException)
+        {
+            // A concurrent request for the same account replaced the previous link first
+            // and is sending a fresh one; this request has nothing left to do.
+            return new ForgotPasswordResult(GenericMessage);
+        }
 
         var resetPasswordUrl = _authLinkBuilder.BuildPasswordResetUrl(resetToken);
 

@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using MangaTracker.Domain.Common;
 using MangaTracker.Domain.Entities;
 

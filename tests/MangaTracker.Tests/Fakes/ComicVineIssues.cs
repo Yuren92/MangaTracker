@@ -18,7 +18,6 @@ public static class ComicVineIssues
             ImageUrl: null,
             CoverDate: null,
             StoreDate: null,
-            Description: null,
             SiteDetailUrl: null,
             ApiDetailUrl: Url(number));
     }

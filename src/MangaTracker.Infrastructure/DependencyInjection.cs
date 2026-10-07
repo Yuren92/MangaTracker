@@ -1,4 +1,7 @@
+using System.Net;
 using System.Text;
+using System.Threading.Channels;
+using Microsoft.Extensions.Http.Resilience;
 using MangaTracker.Application.Abstractions;
 using MangaTracker.Application.Abstractions.Auth;
 using MangaTracker.Infrastructure.Auth;
@@ -21,6 +24,10 @@ public static class DependencyInjection
 {
     // HS256 needs a key of at least 256 bits.
     private const int MinJwtSecretKeyBytes = 32;
+
+    // "Enhance your calm": what Comic Vine answers once a key is being throttled.
+    // https://comicvine.gamespot.com/forums/api-developers-2334/new-api-http-status-when-rate-limited-1751775/
+    private const HttpStatusCode ComicVineRateLimitedStatus = (HttpStatusCode)420;
 
     public static IServiceCollection AddInfrastructure(
         this IServiceCollection services,
@@ -94,17 +101,20 @@ public static class DependencyInjection
         services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 
         services
-        .AddOptions<ComicVineOptions>()
-        .Bind(configuration.GetSection(ComicVineOptions.SectionName))
-        .Validate(
-            options => IsHttpsUrl(options.BaseUrl),
-            "Comic Vine base URL must be a valid absolute HTTPS URL.")
-        .Validate(
-            options => !string.IsNullOrWhiteSpace(options.ApiKey),
-            "Comic Vine API key is required.")
-        .ValidateOnStart();
+            .AddOptions<ComicVineOptions>()
+            .Bind(configuration.GetSection(ComicVineOptions.SectionName))
+            .Validate(
+                options => IsHttpsUrl(options.BaseUrl),
+                "Comic Vine base URL must be a valid absolute HTTPS URL.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.ApiKey),
+                "Comic Vine API key is required.")
+            .ValidateOnStart();
 
-        services.AddHttpClient<IComicVineClient, ComicVineClient>((serviceProvider, client) =>
+        services.AddSingleton<ComicVineRequestGate>();
+        services.AddTransient<ComicVineThrottlingHandler>();
+
+        var comicVineHttpClient = services.AddHttpClient<IComicVineClient, ComicVineClient>((serviceProvider, client) =>
         {
             var options = serviceProvider
                 .GetRequiredService<Microsoft.Extensions.Options.IOptions<ComicVineOptions>>()
@@ -112,26 +122,59 @@ public static class DependencyInjection
 
             client.BaseAddress = new Uri(options.BaseUrl);
             client.DefaultRequestHeaders.UserAgent.ParseAdd("MangaTracker/1.0");
-        })
+        });
+
         // Timeouts, retries and circuit breaking live in the resilience pipeline instead of
         // HttpClient.Timeout. Only GET requests are sent, so retrying them is safe.
-        .AddStandardResilienceHandler(resilience =>
+        comicVineHttpClient.AddStandardResilienceHandler(resilience =>
         {
             // Retries honour Retry-After on 429 and use exponential backoff with jitter.
+            // Comic Vine's own rate-limit status (420) is not retried: retrying while
+            // throttled only makes the restriction harsher.
             resilience.Retry.MaxRetryAttempts = 2;
-            resilience.AttemptTimeout.Timeout = TimeSpan.FromSeconds(10);
-            resilience.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(30);
+
+            // Each attempt includes the wait for a turn at the request gate (up to 5 s).
+            resilience.AttemptTimeout.Timeout = TimeSpan.FromSeconds(15);
+            resilience.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(45);
 
             // After repeated failures, fail fast for a while instead of piling up requests
-            // on a provider that is down.
+            // on a provider that is down or throttling us. The default minimum of 100
+            // requests per window is never reached by this app, so the breaker would
+            // never open; 5 is enough to tell a bad spell from a single error.
             resilience.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(30);
+            resilience.CircuitBreaker.MinimumThroughput = 5;
             resilience.CircuitBreaker.BreakDuration = TimeSpan.FromSeconds(30);
+            resilience.CircuitBreaker.ShouldHandle = arguments => ValueTask.FromResult(
+                HttpClientResiliencePredicates.IsTransient(arguments.Outcome) ||
+                arguments.Outcome.Result?.StatusCode == ComicVineRateLimitedStatus);
         });
+
+        // Added after the resilience handler, so it runs inside it: every attempt,
+        // retries included, waits for its turn.
+        comicVineHttpClient.AddHttpMessageHandler<ComicVineThrottlingHandler>();
 
         return services;
     }
 
     private static void AddEmailSender(
+        IServiceCollection services,
+        IConfiguration configuration,
+        IHostEnvironment environment)
+    {
+        // Use cases queue emails (BackgroundEmailSender) and EmailDispatcherService sends
+        // them with the transport chosen below, outside the HTTP request.
+        services.AddSingleton(Channel.CreateBounded<EmailWorkItem>(new BoundedChannelOptions(1000)
+        {
+            SingleReader = true,
+            FullMode = BoundedChannelFullMode.Wait
+        }));
+        services.AddSingleton<IEmailSender, BackgroundEmailSender>();
+        services.AddHostedService<EmailDispatcherService>();
+
+        AddEmailTransport(services, configuration, environment);
+    }
+
+    private static void AddEmailTransport(
         IServiceCollection services,
         IConfiguration configuration,
         IHostEnvironment environment)
@@ -149,7 +192,7 @@ public static class DependencyInjection
                     $"Smtp:Host is required in the '{environment.EnvironmentName}' environment.");
             }
 
-            services.AddScoped<IEmailSender, ConsoleEmailSender>();
+            services.AddKeyedScoped<IEmailSender, ConsoleEmailSender>(EmailTransport.Key);
             return;
         }
 
@@ -167,7 +210,7 @@ public static class DependencyInjection
                 "Smtp:EnableSsl must be true outside Development.")
             .ValidateOnStart();
 
-        services.AddScoped<IEmailSender, SmtpEmailSender>();
+        services.AddKeyedScoped<IEmailSender, SmtpEmailSender>(EmailTransport.Key);
     }
 
     private static bool IsAbsoluteUrl(string? value)

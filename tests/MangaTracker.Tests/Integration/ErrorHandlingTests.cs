@@ -1,6 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
-using FluentAssertions;
+using AwesomeAssertions;
 using MangaTracker.Tests.Integration.Infrastructure;
 
 namespace MangaTracker.Tests.Integration;
@@ -28,7 +28,8 @@ public sealed class ErrorHandlingTests
         response.Content.Headers.ContentType!.MediaType.Should().Be("application/problem+json");
 
         var body = await response.Content.ReadAsStringAsync();
-        body.Should().Contain("An unexpected error occurred.");
+        body.Should().Contain("An unexpected error occurred.")
+            .And.Contain("\"traceId\"", "the client can quote it to find the error in the logs");
         body.Should().NotContain(FakeComicVineClient.SecretInErrorMessage)
             .And.NotContain("InvalidOperationException")
             .And.NotContain("   at ", "no stack trace");

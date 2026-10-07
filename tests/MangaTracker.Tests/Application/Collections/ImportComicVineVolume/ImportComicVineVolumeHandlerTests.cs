@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using MangaTracker.Application.Abstractions;
 using MangaTracker.Application.Collections.ImportComicVineVolume;
 using MangaTracker.Application.ComicVine.Dtos;
@@ -11,6 +11,7 @@ namespace MangaTracker.Tests.Application.Collections.ImportComicVineVolume;
 
 public sealed class ImportComicVineVolumeHandlerTests
 {
+    private const int VolumeId = 21397;
     private const string ApiDetailUrl = "https://comicvine.gamespot.com/api/volume/4050-21397/";
 
     private readonly IComicVineClient _comicVineClient = Substitute.For<IComicVineClient>();
@@ -132,7 +133,7 @@ public sealed class ImportComicVineVolumeHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_ShouldResumeAPartialImport_RequestingOnlyTheMissingIssues()
+    public async Task HandleAsync_ShouldResumeAPartialImport_AddingOnlyTheMissingTomes()
     {
         // A previous import stored tomes 1 and 2 of a 4 issue volume.
         GivenExistingEdition(issueCount: 4, storedIssueNumbers: [1, 2]);
@@ -145,24 +146,28 @@ public sealed class ImportComicVineVolumeHandlerTests
         result.TotalIssues.Should().Be(4);
         result.ImportedTomes.Should().Be(4);
 
-        await _comicVineClient.Received(1).GetIssueByApiDetailUrlAsync(IssueUrl(3), Arg.Any<CancellationToken>());
-        await _comicVineClient.Received(1).GetIssueByApiDetailUrlAsync(IssueUrl(4), Arg.Any<CancellationToken>());
-        await _comicVineClient.DidNotReceive().GetIssueByApiDetailUrlAsync(IssueUrl(1), Arg.Any<CancellationToken>());
-        await _comicVineClient.DidNotReceive().GetIssueByApiDetailUrlAsync(IssueUrl(2), Arg.Any<CancellationToken>());
-
+        await _comicVineClient.Received(1).GetVolumeIssuesAsync(VolumeId, Arg.Any<CancellationToken>());
         await _tomeRepository.Received(2).AddAsync(Arg.Any<Tome>(), Arg.Any<CancellationToken>());
         await _editionRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
     }
 
     [Fact]
-    public async Task HandleAsync_ShouldReportIncompleteImport_WhenAnIssueDetailIsMissing()
+    public async Task HandleAsync_ShouldFetchAllIssuesInOneListRequest_InsteadOfOnePerIssue()
+    {
+        GivenComicVineVolume(issueCount: 120);
+        GivenComicVineIssues([.. Enumerable.Range(1, 120)]);
+
+        var result = await CreateHandler().HandleAsync(Command());
+
+        result.ImportedTomes.Should().Be(120);
+        await _comicVineClient.Received(1).GetVolumeIssuesAsync(VolumeId, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_ShouldReportIncompleteImport_WhenAnIssueIsNotListedYet()
     {
         GivenComicVineVolume(issueCount: 3);
         GivenComicVineIssues(1, 3);
-
-        _comicVineClient
-            .GetIssueByApiDetailUrlAsync(IssueUrl(2), Arg.Any<CancellationToken>())
-            .Returns((ComicVineIssueDetailDto?)null);
 
         var result = await CreateHandler().HandleAsync(Command());
 
@@ -179,11 +184,7 @@ public sealed class ImportComicVineVolumeHandlerTests
         // Regression: any stored tome used to make the edition count as fully imported.
         GivenExistingEdition(issueCount: 100, storedIssueNumbers: [1]);
         GivenComicVineVolume(issueCount: 2);
-        GivenComicVineIssues(2);
-
-        _comicVineClient
-            .GetIssueByApiDetailUrlAsync(IssueUrl(2), Arg.Any<CancellationToken>())
-            .Returns((ComicVineIssueDetailDto?)null);
+        GivenComicVineIssues();
 
         var result = await CreateHandler().HandleAsync(Command());
 
@@ -305,12 +306,9 @@ public sealed class ImportComicVineVolumeHandlerTests
 
     private void GivenComicVineIssues(params int[] numbers)
     {
-        foreach (var number in numbers)
-        {
-            _comicVineClient
-                .GetIssueByApiDetailUrlAsync(IssueUrl(number), Arg.Any<CancellationToken>())
-                .Returns(ComicVineIssues.Detail(number));
-        }
+        _comicVineClient
+            .GetVolumeIssuesAsync(VolumeId, Arg.Any<CancellationToken>())
+            .Returns(numbers.Select(ComicVineIssues.Detail).ToList());
     }
 
     private static int IssueId(int number) => ComicVineIssues.Id(number);

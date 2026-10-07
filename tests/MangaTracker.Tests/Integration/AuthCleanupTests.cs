@@ -1,5 +1,5 @@
 using System.Net.Http.Json;
-using FluentAssertions;
+using AwesomeAssertions;
 using MangaTracker.Infrastructure.BackgroundJobs;
 using MangaTracker.Infrastructure.Persistence;
 using MangaTracker.Tests.Integration.Infrastructure;

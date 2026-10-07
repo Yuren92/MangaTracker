@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using MangaTracker.Application.Abstractions;
 using MangaTracker.Application.Collections.SyncUserCollections;
 using MangaTracker.Application.ComicVine.Dtos;
@@ -96,17 +96,29 @@ public sealed class SyncUserCollectionsHandlerTests
         GivenComicVineVolume(edition, issueNumbers: [1, 2]);
 
         _comicVineClient
-            .GetIssueByApiDetailUrlAsync(ComicVineIssues.Url(1), Arg.Any<CancellationToken>())
-            .Returns(ComicVineIssues.Detail(1));
-        _comicVineClient
-            .GetIssueByApiDetailUrlAsync(ComicVineIssues.Url(2), Arg.Any<CancellationToken>())
-            .Returns(ComicVineIssues.Detail(2));
+            .GetVolumeIssuesAsync(edition.ComicVineVolumeId, Arg.Any<CancellationToken>())
+            .Returns([ComicVineIssues.Detail(1), ComicVineIssues.Detail(2)]);
 
         var result = await CreateHandler().HandleAsync(Command());
 
         result.NewTomes.Should().Be(2);
+        await _comicVineClient.Received(1).GetVolumeIssuesAsync(edition.ComicVineVolumeId, Arg.Any<CancellationToken>());
         await _tomeRepository.Received(2).AddAsync(Arg.Any<Tome>(), Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_ShouldNotListIssues_WhenTheVolumeHasNoNewOnes()
+    {
+        var edition = NewEdition(lastSyncedHoursAgo: 48);
+        GivenUserCollections(edition);
+        GivenComicVineVolume(edition, issueNumbers: []);
+
+        var result = await CreateHandler().HandleAsync(Command());
+
+        result.SyncedCollections.Should().Be(1);
+        result.NewTomes.Should().Be(0);
+        await _comicVineClient.DidNotReceiveWithAnyArgs().GetVolumeIssuesAsync(default, default);
     }
 
     [Fact]

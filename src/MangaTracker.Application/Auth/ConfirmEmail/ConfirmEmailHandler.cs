@@ -61,7 +61,15 @@ public sealed class ConfirmEmailHandler
         user.ConfirmEmail();
         userToken.MarkAsUsed();
 
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (ConcurrentUpdateException)
+        {
+            // A concurrent request used the same link first: it is single-use.
+            throw new ValidationException("Confirmation token is invalid or expired.");
+        }
 
         await _emailSender.SendWelcomeAsync(
             user.Email,

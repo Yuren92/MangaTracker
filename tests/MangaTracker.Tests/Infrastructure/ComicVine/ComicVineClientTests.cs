@@ -1,6 +1,6 @@
 using System.Net;
 using System.Text;
-using FluentAssertions;
+using AwesomeAssertions;
 using MangaTracker.Application.Common.Exceptions;
 using MangaTracker.Infrastructure.ExternalServices.ComicVine;
 using Microsoft.Extensions.Options;
@@ -38,14 +38,16 @@ public sealed class ComicVineClientTests
         var client = CreateClient(handler);
 
         await client.GetVolumeByApiDetailUrlAsync(
-            "https://comicvine.gamespot.com/api/volume/4050-1/?field_list=id#fragment");
+            "https://comicvine.gamespot.com/api/volume/4050-1/?api_key=other&field_list=id#fragment");
 
         var request = handler.Requests.Should().ContainSingle().Subject;
 
         request.Scheme.Should().Be(Uri.UriSchemeHttps);
         request.Host.Should().Be("comicvine.gamespot.com");
         request.AbsolutePath.Should().Be("/api/volume/4050-1/");
-        request.Query.Should().Be($"?field_list=id&api_key={ApiKey}&format=json");
+        request.Query.Should().StartWith($"?api_key={ApiKey}&format=json&field_list=id,name,",
+            "the client's query and fragment are dropped; only our parameters are sent");
+        request.Query.Should().Contain(",issues");
         request.Fragment.Should().BeEmpty();
     }
 
@@ -62,6 +64,7 @@ public sealed class ComicVineClientTests
     [Theory]
     [InlineData(HttpStatusCode.InternalServerError)]
     [InlineData(HttpStatusCode.TooManyRequests)]
+    [InlineData((HttpStatusCode)420)] // Comic Vine's "rate limited" status
     [InlineData(HttpStatusCode.Unauthorized)]
     public async Task GetVolumeByApiDetailUrlAsync_should_report_provider_failures_as_unavailable(HttpStatusCode status)
     {
@@ -103,7 +106,7 @@ public sealed class ComicVineClientTests
             { "results": [
               { "id": 1, "name": "Berserk", "publisher": { "name": "Dark Horse" }, "count_of_issues": 41,
                 "start_year": "2003", "deck": "Dark fantasy.",
-                "image": { "thumb_url": "https://img/thumb.jpg", "original_url": "https://img/original.jpg" },
+                "image": { "thumb_url": "https://img/thumb.jpg", "medium_url": "https://img/medium.jpg", "original_url": "https://img/original.jpg" },
                 "api_detail_url": "https://comicvine.gamespot.com/api/volume/4050-1/" },
               { "id": 2, "name": "No API url", "start_year": "n/a" }
             ] }
@@ -117,10 +120,11 @@ public sealed class ComicVineClientTests
         volume.PublisherName.Should().Be("Dark Horse");
         volume.CountOfIssues.Should().Be(41);
         volume.StartYear.Should().Be(2003);
-        volume.ImageUrl.Should().Be("https://img/original.jpg", "the largest image wins");
+        volume.ImageUrl.Should().Be("https://img/medium.jpg", "covers are shown small, so the multi-megabyte original is not used");
 
         var query = handler.Requests.Single().Query;
-        query.Should().Contain("query=berserk&").And.Contain("limit=50").And.Contain("resources=volume");
+        query.Should().Contain("query=berserk&").And.Contain("limit=50").And.Contain("resources=volume")
+            .And.Contain("field_list=", "only the mapped fields are requested");
     }
 
     [Fact]
@@ -135,24 +139,53 @@ public sealed class ComicVineClientTests
     }
 
     [Fact]
-    public async Task GetIssueByApiDetailUrlAsync_should_map_numbers_dates_and_image_fallbacks()
+    public async Task GetVolumeIssuesAsync_should_map_numbers_dates_and_image_fallbacks()
     {
         const string json = """
-            { "results": { "id": 777, "issue_number": "12.5", "name": "Special",
-              "cover_date": "2004-02-01", "store_date": "not a date",
-              "image": { "medium_url": "https://img/medium.jpg", "tiny_url": "https://img/tiny.jpg" } } }
+            { "status_code": 1, "number_of_total_results": 2, "results": [
+              { "id": 777, "issue_number": "12.5", "name": "Special",
+                "cover_date": "2004-02-01", "store_date": "not a date",
+                "image": { "medium_url": "https://img/medium.jpg", "tiny_url": "https://img/tiny.jpg" },
+                "api_detail_url": "https://comicvine.gamespot.com/api/issue/4000-777/" },
+              { "id": 778, "issue_number": "13", "name": "Without API url" }
+            ] }
             """;
-        const string issueUrl = "https://comicvine.gamespot.com/api/issue/4000-777/";
 
-        var issue = await CreateClient(new RecordingHandler(_ => Json(json))).GetIssueByApiDetailUrlAsync(issueUrl);
+        var issues = await CreateClient(new RecordingHandler(_ => Json(json))).GetVolumeIssuesAsync(42);
 
-        issue!.ComicVineIssueId.Should().Be(777);
+        var issue = issues.Should().ContainSingle("issues without an API url cannot become tomes").Subject;
+        issue.ComicVineIssueId.Should().Be(777);
         issue.IssueNumber.Should().Be("12.5");
         issue.NormalizedNumber.Should().BeNull("only whole numbers are used for ordering");
         issue.CoverDate.Should().Be(new DateOnly(2004, 2, 1));
         issue.StoreDate.Should().BeNull();
         issue.ImageUrl.Should().Be("https://img/medium.jpg");
-        issue.ApiDetailUrl.Should().Be(issueUrl, "falls back to the requested URL when the response omits it");
+    }
+
+    [Fact]
+    public async Task GetVolumeIssuesAsync_should_read_every_page_of_the_issues_list()
+    {
+        // 150 issues: one full page of 100 and a second one of 50.
+        var handler = new RecordingHandler(request =>
+        {
+            var offset = request.RequestUri!.Query.Contains("offset=100") ? 100 : 0;
+            var count = offset == 0 ? 100 : 50;
+            var results = string.Join(",", Enumerable.Range(offset + 1, count).Select(id =>
+                $$"""{ "id": {{id}}, "issue_number": "{{id}}", "api_detail_url": "https://comicvine.gamespot.com/api/issue/4000-{{id}}/" }"""));
+
+            return Json($$"""{ "status_code": 1, "number_of_total_results": 150, "results": [{{results}}] }""");
+        });
+
+        var issues = await CreateClient(handler).GetVolumeIssuesAsync(42);
+
+        issues.Should().HaveCount(150);
+        handler.Requests.Should().HaveCount(2, "one request per 100 issues, not one per issue");
+        handler.Requests.Should().AllSatisfy(request =>
+        {
+            request.AbsolutePath.Should().Be("/api/issues/");
+            request.Query.Should().Contain("filter=volume:42").And.Contain("limit=100").And.Contain("field_list=");
+        });
+        handler.Requests[1].Query.Should().Contain("offset=100");
     }
 
     [Fact]
@@ -164,7 +197,7 @@ public sealed class ComicVineClientTests
             Json("""{ "error": "Object Not Found", "status_code": 101, "results": [] }""")));
 
         (await client.GetVolumeByApiDetailUrlAsync(ValidUrl)).Should().BeNull();
-        (await client.GetIssueByApiDetailUrlAsync("https://comicvine.gamespot.com/api/issue/4000-1/")).Should().BeNull();
+        (await client.GetVolumeIssuesAsync(1)).Should().BeEmpty();
     }
 
     [Theory]

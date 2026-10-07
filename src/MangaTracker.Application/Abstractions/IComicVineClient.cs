@@ -9,15 +9,13 @@ public interface IComicVineClient
         int limit = 10,
         CancellationToken cancellationToken = default);
 
-    Task<ComicVineVolumeDetailDto?> GetVolumeByComicVineVolumeIdAsync(
-    int comicVineVolumeId,
-    CancellationToken cancellationToken = default);
-
     Task<ComicVineVolumeDetailDto?> GetVolumeByApiDetailUrlAsync(
         string apiDetailUrl,
         CancellationToken cancellationToken = default);
 
-    Task<ComicVineIssueDetailDto?> GetIssueByApiDetailUrlAsync(
-        string apiDetailUrl,
+    // Every issue of a volume with the details a tome needs, fetched in pages of 100
+    // through the issues list instead of one request per issue.
+    Task<IReadOnlyCollection<ComicVineIssueDetailDto>> GetVolumeIssuesAsync(
+        int comicVineVolumeId,
         CancellationToken cancellationToken = default);
 }

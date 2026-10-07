@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using MangaTracker.Application.Abstractions;
 using MangaTracker.Application.Abstractions.Auth;
 using MangaTracker.Application.Auth.LoginUser;

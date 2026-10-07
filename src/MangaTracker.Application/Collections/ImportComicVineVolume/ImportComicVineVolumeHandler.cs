@@ -1,4 +1,5 @@
 using MangaTracker.Application.Abstractions;
+using MangaTracker.Application.ComicVine.Dtos;
 using MangaTracker.Application.Common.Exceptions;
 using MangaTracker.Domain.Entities;
 
@@ -185,9 +186,8 @@ public sealed class ImportComicVineVolumeHandler
             .Select(tome => tome.ComicVineApiDetailUrl)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        // Only issues without a stored tome are requested, so retrying a partial
-        // import costs one call per missing issue instead of one per issue, and
-        // running the same import twice adds nothing.
+        // Only issues without a stored tome become new tomes, so running the same
+        // import twice adds nothing and a partial import resumes where it stopped.
         var missingIssues = volume.Issues
             .Where(issue => !storedIssueUrls.Contains(issue.ApiDetailUrl))
             .OrderBy(issue => issue.NormalizedNumber ?? int.MaxValue)
@@ -196,15 +196,18 @@ public sealed class ImportComicVineVolumeHandler
 
         var tomesWithData = volume.Issues.Count - missingIssues.Count;
 
+        // One paged request per 100 issues for the whole volume, and none at all when
+        // nothing is missing.
+        var issueDetails = missingIssues.Count == 0
+            ? new Dictionary<string, ComicVineIssueDetailDto>()
+            : await GetIssueDetailsByUrlAsync(volume.ComicVineVolumeId, cancellationToken);
+
         foreach (var issueSummary in missingIssues)
         {
-            var issueDetail = await _comicVineClient.GetIssueByApiDetailUrlAsync(
-                issueSummary.ApiDetailUrl,
-                cancellationToken);
-
-            if (issueDetail is null || !storedIssueUrls.Add(issueDetail.ApiDetailUrl))
+            if (!issueDetails.TryGetValue(issueSummary.ApiDetailUrl, out var issueDetail)
+                || !storedIssueUrls.Add(issueDetail.ApiDetailUrl))
             {
-                // Missing in Comic Vine (retried on the next import) or a duplicate.
+                // Not listed by Comic Vine yet (retried on the next import) or a duplicate.
                 continue;
             }
 
@@ -236,6 +239,17 @@ public sealed class ImportComicVineVolumeHandler
             TotalIssues: volume.Issues.Count,
             ImportedTomes: tomesWithData,
             IsCompleted: tomesWithData == volume.Issues.Count);
+    }
+
+    private async Task<Dictionary<string, ComicVineIssueDetailDto>> GetIssueDetailsByUrlAsync(
+        int comicVineVolumeId,
+        CancellationToken cancellationToken)
+    {
+        var issues = await _comicVineClient.GetVolumeIssuesAsync(comicVineVolumeId, cancellationToken);
+
+        return issues
+            .DistinctBy(issue => issue.ApiDetailUrl, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(issue => issue.ApiDetailUrl, StringComparer.OrdinalIgnoreCase);
     }
 
     private async Task<UserCollection> GetOrAddUserCollectionAsync(

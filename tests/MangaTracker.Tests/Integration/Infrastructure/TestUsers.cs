@@ -1,6 +1,6 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using FluentAssertions;
+using AwesomeAssertions;
 
 namespace MangaTracker.Tests.Integration.Infrastructure;
 

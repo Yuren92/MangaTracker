@@ -1,7 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using FluentAssertions;
+using AwesomeAssertions;
 using MangaTracker.Tests.Integration.Infrastructure;
 
 namespace MangaTracker.Tests.Integration;
@@ -92,9 +92,14 @@ public sealed class AuthFlowTests
 
         wrongPassword.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         unknownEmail.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        (await wrongPassword.Content.ReadAsStringAsync())
-            .Should().Be(await unknownEmail.Content.ReadAsStringAsync());
+        // Everything but the per-request traceId must match.
+        var wrongPasswordProblem = await wrongPassword.Content.ReadFromJsonAsync<ProblemResponse>();
+        var unknownEmailProblem = await unknownEmail.Content.ReadFromJsonAsync<ProblemResponse>();
+
+        wrongPasswordProblem.Should().Be(unknownEmailProblem);
     }
+
+    private sealed record ProblemResponse(string Title, int Status, string Detail);
 
     [Fact]
     public async Task Forgot_password_should_not_reveal_whether_an_email_is_registered()
@@ -134,6 +139,26 @@ public sealed class AuthFlowTests
         var oldPasswordLogin = await _client.PostAsJsonAsync("/api/auth/login", new { email, password = TestUsers.Password });
         oldPasswordLogin.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         await TestUsers.LoginAsync(_client, email, newPassword);
+    }
+
+    [Fact]
+    public async Task A_reset_link_used_by_concurrent_requests_should_work_only_once()
+    {
+        var email = TestUsers.NewEmail();
+        await TestUsers.RegisterAsync(_client, email);
+        await TestUsers.ConfirmAsync(_client, _factory, email);
+
+        await _client.PostAsJsonAsync("/api/auth/forgot-password", new { email });
+        var token = _factory.Emails.LatestTokenFor(email, EmailKind.PasswordReset);
+
+        // All requests read the token as unused before any of them saves; without the
+        // concurrency check on UsedAt, several would succeed with different passwords.
+        var responses = await Task.WhenAll(Enumerable.Range(1, 5).Select(attempt =>
+            _client.PostAsJsonAsync("/api/auth/reset-password", new { token, newPassword = $"Racing-Password-{attempt}" })));
+
+        responses.Count(response => response.StatusCode == HttpStatusCode.OK).Should().Be(1);
+        responses.Where(response => response.StatusCode != HttpStatusCode.OK)
+            .Should().AllSatisfy(response => response.StatusCode.Should().Be(HttpStatusCode.BadRequest));
     }
 
     [Fact]
