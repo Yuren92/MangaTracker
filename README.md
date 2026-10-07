@@ -551,6 +551,13 @@ dotnet ef migrations script --idempotent `
   --output deploy\manga-tracker-migrations.sql
 ```
 
+EF Core escribe el script con BOM (los bytes `EF BB BF` al principio). `sqlcmd` lo ignora, pero la herramienta SQL del panel de MonsterASP lo rechaza con `Incorrect syntax near '﻿'`. Después de regenerarlo, quítalo:
+
+```powershell
+$path = 'deploy\manga-tracker-migrations.sql'
+[IO.File]::WriteAllText((Resolve-Path $path), [IO.File]::ReadAllText((Resolve-Path $path)), [Text.UTF8Encoding]::new($false))
+```
+
 ## Decisiones y limitaciones conocidas
 
 Compromisos asumidos a propósito para el tamaño actual del proyecto, con lo que cambiaría si creciera:
