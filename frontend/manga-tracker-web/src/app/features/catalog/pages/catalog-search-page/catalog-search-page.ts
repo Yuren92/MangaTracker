@@ -1,200 +1,139 @@
-import { Component, computed, ElementRef, inject, OnInit, signal, ViewChild } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
+import { Component, computed, ElementRef, inject, OnInit, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 
 import { getApiErrorMessage } from '../../../../core/http/api-error';
 import { AppAlert } from '../../../../shared/components/app-alert/app-alert';
+import { TomesPipe } from '../../../../shared/pipes/tomes.pipe';
 import { CollectionsApi } from '../../../collections/services/collections-api';
 import { CatalogSearchResult, ComicVineVolumePreview } from '../../models/catalog.models';
 import { CatalogApi } from '../../services/catalog-api';
 
 @Component({
   selector: 'app-catalog-search-page',
-  imports: [FormsModule, RouterLink, AppAlert],
+  imports: [FormsModule, RouterLink, NgTemplateOutlet, AppAlert, TomesPipe],
   templateUrl: './catalog-search-page.html',
   styleUrl: './catalog-search-page.scss'
 })
 export class CatalogSearchPage implements OnInit {
-  @ViewChild('volumePreviewSection')
-  private readonly volumePreviewSection?: ElementRef<HTMLElement>;
-
   private readonly catalogApi = inject(CatalogApi);
   private readonly collectionsApi = inject(CollectionsApi);
+  private readonly previewDialog = viewChild.required<ElementRef<HTMLDialogElement>>('previewDialog');
 
   readonly query = signal('');
   readonly results = signal<CatalogSearchResult[]>([]);
-  readonly isLoading = signal(false);
-  readonly errorMessage = signal<string | null>(null);
-  readonly hasSearched = signal(false);
-  readonly selectedVolume = signal<ComicVineVolumePreview | null>(null);
+  readonly searchedFor = signal<string | null>(null);
+  readonly isSearching = signal(false);
+  readonly searchError = signal<string | null>(null);
+
+  readonly preview = signal<ComicVineVolumePreview | null>(null);
+  readonly previewItem = signal<CatalogSearchResult | null>(null);
   readonly isPreviewLoading = signal(false);
-  readonly previewErrorMessage = signal<string | null>(null);
-  readonly isImporting = signal(false);
-  readonly importSuccessMessage = signal<string | null>(null);
-  readonly importErrorMessage = signal<string | null>(null);
-  readonly importedCollectionId = signal<string | null>(null);
-  readonly importedComicVineVolumeIds = signal<Set<number>>(new Set<number>());
-  readonly importedCollectionIdsByVolumeId = signal<Map<number, string>>(new Map<number, string>());
+  readonly previewError = signal<string | null>(null);
 
-  readonly isSelectedVolumeImported = computed(() => {
-    const volume = this.selectedVolume();
-    if (!volume) {
-      return false;
-    }
+  readonly isAdding = signal(false);
+  readonly addResult = signal<{ collectionId: string; message: string } | null>(null);
+  readonly addError = signal<string | null>(null);
 
-    return this.importedComicVineVolumeIds().has(volume.comicVineVolumeId);
+  // Volumes already on the user's shelf, by Comic Vine volume id -> collection id.
+  readonly shelf = signal<ReadonlyMap<number, string>>(new Map<number, string>());
+
+  readonly previewCollectionId = computed(() => {
+    const item = this.previewItem();
+    return item ? this.shelf().get(item.comicVineVolumeId) ?? null : null;
   });
 
-
   ngOnInit(): void {
-    this.loadImportedCollections();
+    this.collectionsApi.getCollections().subscribe({
+      next: response => this.shelf.set(
+        new Map(response.items.map(collection => [collection.comicVineVolumeId, collection.id]))),
+      // Without it the page still works; it just cannot flag series already on the shelf.
+      error: () => undefined
+    });
   }
 
   search(): void {
     const query = this.query().trim();
 
     if (!query) {
-      this.errorMessage.set('Escribe el nombre de una serie.');
-      this.results.set([]);
-      this.hasSearched.set(false);
+      this.searchError.set('Escribe el nombre de una serie.');
       return;
     }
 
-    this.isLoading.set(true);
-    this.errorMessage.set(null);
-    this.hasSearched.set(true);
+    this.isSearching.set(true);
+    this.searchError.set(null);
 
-    this.catalogApi.search(query).subscribe({
+    this.catalogApi.search(query, 20).subscribe({
       next: results => {
         this.results.set(results);
-        this.isLoading.set(false);
+        this.searchedFor.set(query);
+        this.isSearching.set(false);
       },
       error: error => {
-        this.errorMessage.set(
-          getApiErrorMessage(error, 'No se ha podido buscar en el catálogo.')
-        );
-
+        this.searchError.set(getApiErrorMessage(error, 'No se ha podido buscar en el catálogo.'));
         this.results.set([]);
-        this.isLoading.set(false);
+        this.isSearching.set(false);
       }
     });
   }
 
-  previewVolume(item: CatalogSearchResult): void {
+  collectionIdFor(item: CatalogSearchResult): string | null {
+    return this.shelf().get(item.comicVineVolumeId) ?? null;
+  }
+
+  openPreview(item: CatalogSearchResult): void {
+    this.previewItem.set(item);
+    this.preview.set(null);
+    this.previewError.set(null);
+    this.addResult.set(null);
+    this.addError.set(null);
     this.isPreviewLoading.set(true);
-    this.previewErrorMessage.set(null);
-    this.selectedVolume.set(null);
-    this.importSuccessMessage.set(null);
-    this.importErrorMessage.set(null);
-    this.importedCollectionId.set(null);
+    this.previewDialog().nativeElement.showModal();
 
     this.catalogApi.previewVolume(item.apiDetailUrl).subscribe({
       next: volume => {
-        this.selectedVolume.set(volume);
+        this.preview.set(volume);
         this.isPreviewLoading.set(false);
-        this.scrollToVolumePreview();
       },
       error: error => {
-        this.previewErrorMessage.set(
-          getApiErrorMessage(error, 'No se ha podido cargar la vista previa.')
-        );
-
+        this.previewError.set(getApiErrorMessage(error, 'No se ha podido cargar esta edición.'));
         this.isPreviewLoading.set(false);
       }
     });
   }
 
   closePreview(): void {
-    this.selectedVolume.set(null);
-    this.previewErrorMessage.set(null);
+    this.previewDialog().nativeElement.close();
   }
 
-  isVolumeImported(item: CatalogSearchResult): boolean {
-    return this.importedComicVineVolumeIds().has(item.comicVineVolumeId);
-  }
-
-  getImportedCollectionId(item: CatalogSearchResult): string | null {
-    return this.importedCollectionIdsByVolumeId().get(item.comicVineVolumeId) ?? null;
-  }
-
-  importSelectedVolume(): void {
-    const volume = this.selectedVolume();
+  addToShelf(): void {
+    const volume = this.preview();
 
     if (!volume) {
       return;
     }
 
-    this.isImporting.set(true);
-    this.importSuccessMessage.set(null);
-    this.importErrorMessage.set(null);
+    this.isAdding.set(true);
+    this.addError.set(null);
 
-    this.collectionsApi.importComicVineVolume({
-      apiDetailUrl: volume.apiDetailUrl
-    }).subscribe({
+    this.collectionsApi.importComicVineVolume({ apiDetailUrl: volume.apiDetailUrl }).subscribe({
       next: result => {
-        this.importedCollectionId.set(result.userCollectionId);
+        this.isAdding.set(false);
 
-        // A partial import keeps the button enabled so it can be resumed right away.
-        if (result.isCompleted) {
-          this.importedComicVineVolumeIds.update(current => {
-            const next = new Set(current);
-            next.add(result.comicVineVolumeId);
-            return next;
-          });
-
-          this.importedCollectionIdsByVolumeId.update(current => {
-            const next = new Map(current);
-            next.set(result.comicVineVolumeId, result.userCollectionId);
-            return next;
-          });
-        }
-
-        // A partial import is kept and resumed: importing again only fetches what is missing.
-        this.importSuccessMessage.set(
-          result.isCompleted
-            ? `${result.title} se ha importado con ${result.importedTomes} tomos.`
-            : `${result.title} se ha importado a medias (${result.importedTomes} de ${result.totalIssues} tomos). ` +
-              'Vuelve a importarla para completar los que faltan; la sincronización también lo hará.'
-        );
-
-        this.isImporting.set(false);
+        // A partial import is kept and resumed later, so the series is on the shelf
+        // either way; the message says whether some tomes are still on their way.
+        this.shelf.update(current => new Map(current).set(result.comicVineVolumeId, result.userCollectionId));
+        this.addResult.set({
+          collectionId: result.userCollectionId,
+          message: result.isCompleted
+            ? `Añadida con sus ${result.importedTomes} tomos.`
+            : `Añadida con ${result.importedTomes} de ${result.totalIssues} tomos; el resto llegará en la próxima actualización.`
+        });
       },
       error: error => {
-        this.importErrorMessage.set(
-          getApiErrorMessage(error, 'No se ha podido importar esta edición.')
-        );
-
-        this.isImporting.set(false);
-      }
-    });
-  }
-
-  private scrollToVolumePreview(): void {
-    setTimeout(() => {
-      this.volumePreviewSection?.nativeElement.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start'
-      });
-    });
-  }
-
-  private loadImportedCollections(): void {
-    this.collectionsApi.getCollections().subscribe({
-      next: response => {
-        const importedVolumeIds = new Set<number>();
-        const collectionIdsByVolumeId = new Map<number, string>();
-
-        for (const collection of response.items) {
-          importedVolumeIds.add(collection.comicVineVolumeId);
-          collectionIdsByVolumeId.set(collection.comicVineVolumeId, collection.id);
-        }
-
-        this.importedComicVineVolumeIds.set(importedVolumeIds);
-        this.importedCollectionIdsByVolumeId.set(collectionIdsByVolumeId);
-      },
-      error: () => {
-        this.importedComicVineVolumeIds.set(new Set<number>());
-        this.importedCollectionIdsByVolumeId.set(new Map<number, string>());
+        this.addError.set(getApiErrorMessage(error, 'No se ha podido añadir esta edición.'));
+        this.isAdding.set(false);
       }
     });
   }

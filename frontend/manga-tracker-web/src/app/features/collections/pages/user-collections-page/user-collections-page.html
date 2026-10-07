@@ -1,105 +1,62 @@
 <section class="page">
-  <header class="page-header">
+  <header class="page-head">
     <div>
-      <p class="eyebrow">Tu biblioteca</p>
-      <h1>Mis colecciones</h1>
-      <p class="subtitle">
-        Consulta las ediciones que sigues y revisa tus tomos comprados y pendientes.
-      </p>
-    </div>
+      <h1 class="page-title">Mi estantería</h1>
 
-    <a class="primary-link" routerLink="/catalog/search">
-      Añadir colección
-    </a>
+      @if (totals().series > 0) {
+        <p class="lede count">
+          {{ totals().series }} {{ totals().series === 1 ? 'serie' : 'series' }} ·
+          <strong>{{ totals().owned }}</strong> de {{ totals().total | tomes }} en casa
+        </p>
+      }
+    </div>
   </header>
 
+  <app-alert type="error" [message]="errorMessage()" />
+  <app-alert type="info" [message]="syncMessage()" />
+
   @if (isLoading()) {
-    <div class="state-card">
-      Cargando colecciones...
+    <p class="state">Cargando tu estantería…</p>
+  } @else if (collections().length === 0 && !errorMessage()) {
+    <div class="empty">
+      <h2>Tu estantería está vacía</h2>
+      <p>Busca una serie, elige la edición que coleccionas y aquí verás qué tomos tienes y cuáles te faltan.</p>
+      <a class="btn" routerLink="/catalog/search">Buscar mi primera serie</a>
     </div>
-  }
-
-  @if (errorMessage()) {
-    <div class="alert error">
-      {{ errorMessage() }}
-    </div>
-  }
-
-  @if (syncMessage()) {
-    <div class="alert info">
-      {{ syncMessage() }}
-    </div>
-  }
-
-  @if (!isLoading() && collections().length === 0 && !errorMessage()) {
-    <div class="empty-state">
-      <h2>Aún no tienes colecciones</h2>
-      <p>
-        Busca una edición en el catálogo de Comic Vine para añadirla a tu colección.
-      </p>
-
-      <a routerLink="/catalog/search">
-        Ir al catálogo
-      </a>
-    </div>
-  }
-
-  @if (collections().length > 0) {
-    <section class="collections-grid">
+  } @else {
+    <ul class="shelf" role="list">
       @for (collection of collections(); track collection.id) {
-        <article class="collection-card">
-          <div class="cover">
+        <li>
+          <a class="series" [routerLink]="['/collections', collection.id]">
             @if (collection.imageUrl) {
               <img
+                class="cover"
                 [src]="collection.imageUrl"
                 [alt]="'Portada de ' + collection.title"
                 loading="lazy"
                 decoding="async"
               />
             } @else {
-              <div class="no-image">Sin imagen</div>
+              <div class="cover-missing">Sin portada</div>
             }
-          </div>
 
-          <div class="collection-content">
-            <div>
-              <h2>{{ collection.title }}</h2>
+            <h2>{{ collection.title }}</h2>
+            <p class="publisher">{{ collection.publisherName ?? 'Editorial desconocida' }}</p>
 
-              <p class="publisher">
-                {{ collection.publisherName ?? 'Editorial desconocida' }}
-              </p>
-
-              <div class="stats">
-                <span>{{ collection.totalTomes }} tomos</span>
-                <span>{{ collection.ownedTomes }} comprados</span>
-                <span>{{ collection.pendingTomes }} pendientes</span>
-              </div>
+            <div class="obi-progress" aria-hidden="true">
+              <span [style.width.%]="progress(collection)"></span>
             </div>
 
-            <div class="collection-actions">
-              <a
-                class="secondary-link"
-                [routerLink]="['/collections', collection.id]"
-              >
-                Ver colección
-              </a>
-
-              <button
-                type="button"
-                class="danger-button"
-                [disabled]="deletingCollectionIds().has(collection.id)"
-                (click)="deleteCollection(collection.id, collection.title)"
-              >
-                @if (deletingCollectionIds().has(collection.id)) {
-                  Eliminando...
-                } @else {
-                  Eliminar
-                }
-              </button>
-            </div>
-          </div>
-        </article>
+            <p class="count">
+              @if (collection.pendingTomes === 0 && collection.totalTomes > 0) {
+                <strong>Completa</strong> · {{ collection.totalTomes | tomes }}
+              } @else {
+                <strong>{{ collection.ownedTomes }}</strong> de {{ collection.totalTomes | tomes }}
+              }
+            </p>
+          </a>
+        </li>
       }
-    </section>
+    </ul>
   }
 </section>

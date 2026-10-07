@@ -1,109 +1,86 @@
 <section class="page">
-  <header class="page-header">
+  <header class="page-head">
     <div>
-      <p class="eyebrow">Todas tus colecciones</p>
-      <h1>Tomos pendientes</h1>
-      <p class="subtitle">
-        Revisa todos los tomos que todavía no has marcado como comprados.
-      </p>
-    </div>
+      <h1 class="page-title">Me faltan</h1>
 
-    <a class="primary-link" routerLink="/collections">
-      Mis colecciones
-    </a>
+      @if (pendingTomes().length > 0) {
+        <p class="lede count">
+          <strong>{{ pendingTomes().length }}</strong>
+          {{ pendingTomes().length === 1 ? 'tomo' : 'tomos' }} de
+          {{ series().length }} {{ series().length === 1 ? 'serie' : 'series' }}
+        </p>
+      }
+    </div>
   </header>
 
+  <app-alert type="error" [message]="errorMessage()" />
+
+  @if (lastMarked(); as tome) {
+    <div class="undo" role="status">
+      <span>{{ tomeName(tome) }} de {{ tome.seriesTitle }}, a la estantería.</span>
+      <button type="button" class="link" (click)="undo()">Deshacer</button>
+    </div>
+  }
+
   @if (isLoading()) {
-    <div class="state-card">
-      Cargando tomos pendientes...
+    <p class="state">Cargando lo que te falta…</p>
+  } @else if (pendingTomes().length === 0 && !errorMessage()) {
+    <div class="empty">
+      <h2>No te falta ningún tomo</h2>
+      <p>Tienes todo lo publicado de tus series. Cuando salga un tomo nuevo aparecerá aquí.</p>
+      <a class="btn btn-quiet" routerLink="/catalog/search">Añadir otra serie</a>
     </div>
-  }
+  } @else {
+    @for (group of series(); track group.collectionId) {
+      <section class="series" [attr.aria-labelledby]="'series-' + group.collectionId">
+        <header class="series-head">
+          <h2 [id]="'series-' + group.collectionId">
+            <a [routerLink]="['/collections', group.collectionId]">{{ group.title }}</a>
+          </h2>
+          <span class="count">
+            {{ group.publisherName ?? 'Editorial desconocida' }} ·
+            <strong>{{ group.tomes.length }}</strong> {{ group.tomes.length === 1 ? 'tomo' : 'tomos' }}
+          </span>
+        </header>
 
-  @if (errorMessage()) {
-    <div class="alert error">
-      {{ errorMessage() }}
-    </div>
-  }
+        <ol class="tome-grid" role="list">
+          @for (tome of group.tomes; track tome.tomeId; let first = $first) {
+            <li class="tome" [class.next]="first">
+              <div class="tome-cover">
+                @if (tome.imageUrl) {
+                  <img class="cover" [src]="tome.imageUrl" alt="" loading="lazy" decoding="async" />
+                } @else {
+                  <span class="cover-missing">Sin portada</span>
+                }
+                <span class="obi" aria-hidden="true">{{ tome.issueNumber || '·' }}</span>
 
-  @if (!isLoading() && pendingTomes().length === 0 && !errorMessage()) {
-    <div class="empty-state">
-      <h2>No tienes tomos pendientes</h2>
-      <p>
-        Todas tus colecciones están completas o todavía no has añadido ninguna colección nueva.
-      </p>
+                @if (first) {
+                  <span class="next-label">El siguiente</span>
+                }
+              </div>
 
-      <a routerLink="/catalog/search">
-        Buscar en catálogo
-      </a>
-    </div>
-  }
-
-  @if (pendingTomes().length > 0) {
-    <section class="tomes-grid">
-      @for (tome of pendingTomes(); track tome.tomeId) {
-        <article class="tome-card">
-          <div class="cover">
-            @if (tome.imageUrl) {
-              <img
-                [src]="tome.imageUrl"
-                [alt]="'Portada del tomo ' + (tome.issueNumber || 'sin número') + ' de ' + tome.seriesTitle"
-                loading="lazy"
-                decoding="async"
-              />
-            } @else {
-              <div class="no-image">Sin imagen</div>
-            }
-          </div>
-
-          <div class="tome-content">
-            <div>
-              <p class="collection-name">
-                {{ tome.seriesTitle }}
-              </p>
-
-              <p class="publisher">
-                {{ tome.publisherName ?? 'Editorial desconocida' }}
-              </p>
-
-              <p class="issue-number">
-                Tomo {{ tome.issueNumber || 'sin número' }}
-              </p>
-
-              <h2>
-                {{ tome.tomeTitle ?? 'Sin título' }}
-              </h2>
+              <!-- Without a title the obi already says everything: no "Tomo 2" under a "2". -->
+              @if (tome.tomeTitle) {
+                <span class="tome-title">{{ tome.tomeTitle }}</span>
+              }
 
               @if (tome.storeDate) {
-                <p class="date">
-                  Publicado: {{ tome.storeDate | date: 'longDate' }}
-                </p>
+                <span class="tome-date">{{ tome.storeDate | date: 'MMM y' }}</span>
               }
-            </div>
 
-            <div class="tome-actions">
               <button
                 type="button"
-                class="primary-button"
-                [disabled]="updatingTomeIds().has(tome.tomeId)"
-                (click)="markAsOwned(tome.collectionId, tome.tomeId)"
+                class="own"
+                [disabled]="isUpdating(tome.tomeId)"
+                [attr.aria-label]="'Lo tengo: ' + tomeName(tome) + ' de ' + group.title"
+                (click)="markAsOwned(tome)"
               >
-                @if (updatingTomeIds().has(tome.tomeId)) {
-                  Marcando...
-                } @else {
-                  Marcar comprado
-                }
+                {{ isUpdating(tome.tomeId) ? 'Guardando…' : 'Lo tengo' }}
               </button>
-
-              <a
-                class="secondary-link"
-                [routerLink]="['/collections', tome.collectionId]"
-              >
-                Ver colección
-              </a>
-            </div>
-          </div>
-        </article>
-      }
-    </section>
+            </li>
+          }
+        </ol>
+      </section>
+    }
   }
 </section>

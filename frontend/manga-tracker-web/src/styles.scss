@@ -1,15 +1,38 @@
-/* Global base styles. Components style themselves; this only sets what every page
-   shares: box model, system font stack, the page background and design tokens. */
+/* Design system for Manga Tracker.
+
+   The app is a shelf of physical manga. Two ideas carry the identity:
+   - Ink and shelf: deep indigo ink on a cool shelf-wall grey, white "paper" surfaces.
+   - The obi: the yellow paper band wrapped around Japanese tankōbon. Yellow means
+     exactly one thing here, "you own it", and appears nowhere else.
+
+   Dela Gothic One (display) is used with restraint: page titles and tome numbers.
+   Zen Kaku Gothic New carries everything else. Both cover Spanish accents. */
+
+:root {
+  --ink: #1b1f3b;
+  --ink-soft: #4a4f6e;
+  --tone: #8a90a6;          /* screentone grey: secondary text, empty slots */
+  --line: #d5d9e4;
+  --shelf: #e9ecf3;         /* page background, the wall behind the shelf */
+  --paper: #ffffff;
+  --obi: #ffcf33;           /* owned */
+  --obi-deep: #e0a800;
+  --alert: #c93a3a;
+  --alert-soft: #fbe9e9;
+  --ok-soft: #fff6d6;
+
+  --font-display: 'Dela Gothic One', 'Arial Black', system-ui, sans-serif;
+  --font-body: 'Zen Kaku Gothic New', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --radius: 6px;            /* books have crisp corners; nothing is pill-shaped */
+  --card-shadow: 0 1px 0 var(--line), 0 8px 24px rgba(27, 31, 59, 0.06);
+  --focus: 0 0 0 3px var(--obi);
+}
 
 *,
 *::before,
 *::after {
   box-sizing: border-box;
-}
-
-/* Shared by every card-like surface (forms, covers, collections...). */
-:root {
-  --card-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
 }
 
 html {
@@ -19,18 +42,11 @@ html {
 body {
   margin: 0;
   min-height: 100vh;
-  background: #f6f7fb;
-  color: #1f2937;
-  font-family:
-    system-ui,
-    -apple-system,
-    'Segoe UI',
-    Roboto,
-    'Helvetica Neue',
-    Arial,
-    sans-serif;
+  background: var(--shelf);
+  color: var(--ink);
+  font-family: var(--font-body);
   font-size: 16px;
-  line-height: 1.5;
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -48,15 +64,276 @@ img {
   max-width: 100%;
 }
 
-/* Content column of the catalog and collection pages. */
-.page {
-  max-width: 1120px;
-  margin: 0 auto;
-  padding: 32px 20px;
-}
-
 h1,
 h2,
 h3 {
   line-height: 1.2;
+  margin: 0;
+}
+
+a {
+  color: inherit;
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+  border-radius: var(--radius);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ---- Page frame ------------------------------------------------------------ */
+
+.page {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 40px 24px 64px;
+
+  @media (max-width: 560px) {
+    padding: 24px 16px 48px;
+  }
+}
+
+.page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px 24px;
+  margin-bottom: 32px;
+}
+
+.page-title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(2rem, 4vw, 2.75rem);
+  letter-spacing: 0.01em;
+}
+
+.lede {
+  margin: 8px 0 0;
+  color: var(--ink-soft);
+}
+
+/* ---- Buttons ----------------------------------------------------------------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 2px solid var(--ink);
+  border-radius: var(--radius);
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 120ms ease, background-color 120ms ease;
+
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+}
+
+.btn-quiet {
+  background: transparent;
+  color: var(--ink);
+
+  &:hover:not(:disabled) {
+    background: var(--paper);
+  }
+}
+
+.btn-danger {
+  border-color: var(--alert);
+  background: transparent;
+  color: var(--alert);
+
+  &:hover:not(:disabled) {
+    background: var(--alert-soft);
+  }
+}
+
+.link {
+  color: var(--ink);
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--obi-deep);
+
+  &:hover {
+    text-decoration-color: var(--ink);
+  }
+}
+
+/* ---- Surfaces and states ----------------------------------------------------- */
+
+.surface {
+  background: var(--paper);
+  border-radius: var(--radius);
+  box-shadow: var(--card-shadow);
+}
+
+.state {
+  padding: 32px 24px;
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+.empty {
+  padding: 48px 24px;
+  text-align: center;
+  border: 2px dashed var(--line);
+  border-radius: var(--radius);
+
+  h2 {
+    font-size: 1.25rem;
+    margin-bottom: 8px;
+  }
+
+  p {
+    margin: 0 auto 20px;
+    max-width: 420px;
+    color: var(--ink-soft);
+  }
+}
+
+/* ---- Covers ------------------------------------------------------------------- */
+
+.cover {
+  display: block;
+  aspect-ratio: 2 / 3;
+  width: 100%;
+  object-fit: cover;
+  border-radius: 3px;
+  background: var(--line);
+}
+
+.cover-missing {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 2 / 3;
+  border-radius: 3px;
+  background: repeating-radial-gradient(circle at 0 0, var(--line) 0 1px, transparent 1px 6px), var(--paper);
+  background-size: 6px 6px;
+  color: var(--tone);
+  font-size: 0.8rem;
+}
+
+/* ---- Tomes on a shelf (series detail and "Me faltan") ---------------------------- */
+
+.tome-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: 28px 18px;
+
+  @media (max-width: 560px) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 20px 12px;
+  }
+}
+
+/* A tome you do not have: the cover stays as a reminder, but faded. */
+.tome-cover {
+  position: relative;
+  display: block;
+
+  .cover,
+  .cover-missing {
+    filter: grayscale(1);
+    opacity: 0.45;
+    transition: filter 180ms ease, opacity 180ms ease, transform 180ms ease;
+  }
+}
+
+/* The obi: a band across the lower cover carrying the tome number. White while
+   missing so the sequence stays readable; yellow once the tome is owned. */
+.obi {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 10%;
+  padding: 2px 6px;
+  background: var(--paper);
+  color: var(--tone);
+  font-family: var(--font-display);
+  font-size: 1rem;
+  line-height: 1.3;
+  text-align: center;
+  box-shadow: 0 2px 6px rgba(27, 31, 59, 0.15);
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+.tome-title {
+  margin-top: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.tome-date {
+  color: var(--tone);
+  font-size: 0.8rem;
+}
+
+/* ---- Obi progress: how much of a series is on the shelf ------------------------- */
+
+.obi-progress {
+  height: 10px;
+  border-radius: 2px;
+  background: var(--line);
+  overflow: hidden;
+
+  span {
+    display: block;
+    height: 100%;
+    background: var(--obi);
+    box-shadow: inset 0 -2px 0 var(--obi-deep);
+  }
+}
+
+.count {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+
+  strong {
+    color: var(--ink);
+  }
 }

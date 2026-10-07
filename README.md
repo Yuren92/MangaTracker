@@ -11,11 +11,11 @@ Es un proyecto personal con el que quería practicar lo que no aparece en un CRU
 
 **Demo:** [manga-tracker-teal.vercel.app](https://manga-tracker-teal.vercel.app) · **API:** [mangatracker.runasp.net/health](https://mangatracker.runasp.net/health)
 
-| Buscar en el catálogo | Una colección |
+| Una serie en la estantería | Me faltan |
 | --- | --- |
-| ![Búsqueda en el catálogo de Comic Vine](docs/images/catalog-search.png) | ![Detalle de una colección con tomos comprados y pendientes](docs/images/collection-detail.png) |
-| **Vista previa antes de importar** | **Tomos pendientes de todas las colecciones** |
-| ![Vista previa de una edición](docs/images/catalog-preview.png) | ![Tomos pendientes](docs/images/pending-tomes.png) |
+| ![Estantería de una serie: tomos que tienes en color con su faja amarilla, los que faltan atenuados](docs/images/collection-detail.png) | ![Tomos que faltan agrupados por serie, con el siguiente que toca comprar destacado](docs/images/pending-tomes.png) |
+| **Añadir serie: cada editorial es una edición** | **Vista previa antes de añadirla** |
+| ![Resultados de búsqueda con la editorial, el año y los tomos de cada edición](docs/images/catalog-search.png) | ![Vista previa de una edición con sus primeros tomos](docs/images/catalog-preview.png) |
 
 Las capturas son de la aplicación real y se regeneran con Playwright (`frontend/manga-tracker-web/e2e/screenshots.spec.ts`).
 
@@ -246,7 +246,7 @@ Esto permite:
 
 Manga Tracker incluye sincronización de colecciones con Comic Vine.
 
-Cuando el usuario entra en “Mis colecciones”, la pantalla carga rápido usando los datos locales y, en paralelo, lanza una sincronización automática contra el backend.
+Cuando el usuario entra en su estantería, la pantalla carga rápido usando los datos locales y, en paralelo, lanza una sincronización automática contra el backend. Solo avisa si han llegado tomos nuevos.
 
 El backend:
 
@@ -361,9 +361,18 @@ En Angular, los errores se procesan con un helper común para mostrar mensajes c
 
 ## Frontend
 
-El frontend está construido con Angular moderno.
+### Diseño
 
-Características:
+La interfaz parte del objeto que gestiona: una estantería de tomos físicos.
+
+* **La faja (*obi*).** Los tomos japoneses llevan una banda de papel; aquí es amarilla y significa una sola cosa: *lo tengo*. Aparece en los tomos comprados, con su número, y en las barras de progreso de cada serie. Los tomos que faltan se ven atenuados, con el número en una faja blanca para que la secuencia se lea igual.
+* **La estantería es la interfaz.** En una serie, cada portada es un botón: un clic marca o desmarca el tomo. Sin tarjetas con botones por tomo ni selectores; los filtros "Todos / Me faltan / Los tengo" muestran su recuento.
+* **Me faltan** agrupa por serie y destaca *el siguiente* tomo que toca comprar; marcar uno se puede deshacer.
+* **Añadir serie** destaca la editorial, el año y el número de tomos, que es lo que distingue una edición de otra con el mismo título; la vista previa se abre en un `<dialog>` nativo.
+* **Tipografía y color:** *Dela Gothic One* solo para títulos y números de tomo, *Zen Kaku Gothic New* para el texto; tinta índigo sobre el gris de una pared de estantería. Los colores y medidas son variables CSS en [`styles.scss`](frontend/manga-tracker-web/src/styles.scss).
+* **Textos desde el lado del usuario:** "Estantería", "Me faltan", "Lo tengo", "Añadir a mi estantería", en lugar de "colecciones", "pendientes" o "importar".
+
+### Implementación
 
 * Standalone components, signals y templates con `@if` y `@for`.
 * Rutas con carga diferida (`loadComponent`): el bundle inicial solo lleva el layout.
@@ -371,7 +380,7 @@ Características:
 * Textos en español en la interfaz: la API responde en inglés y [`api-error.ts`](frontend/manga-tracker-web/src/app/core/http/api-error.ts) traduce los errores que el usuario puede resolver; el resto se sustituye por el mensaje de la pantalla.
 * Reglas de contraseña comprobadas también en el formulario, antes de enviar.
 * Diseño responsive, portadas con carga diferida (`loading="lazy"`) y fechas en formato español.
-* Accesibilidad básica: `autocomplete` en formularios, enlace activo con `aria-current`, alertas con `role="alert"`.
+* Accesibilidad: cada tomo es un botón con `aria-pressed` y su número y título como nombre accesible; foco visible en todos los controles; `prefers-reduced-motion` respetado; `autocomplete` en formularios; enlace activo con `aria-current`; alertas con `role="alert"`.
 
 ## Comunicación frontend-backend
 

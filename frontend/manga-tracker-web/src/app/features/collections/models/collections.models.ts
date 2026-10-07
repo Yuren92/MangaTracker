@@ -70,6 +70,15 @@ export interface MarkAllTomesAsOwnedResponse {
   pendingTomes: number;
 }
 
+export interface SyncCollectionsResponse {
+  checkedCollections: number;
+  syncedCollections: number;
+  skippedCollections: number;
+  deferredCollections: number;
+  failedCollections: number;
+  newTomes: number;
+}
+
 export interface PendingTomesResponse {
   items: PendingTome[];
 }

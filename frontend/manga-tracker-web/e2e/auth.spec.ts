@@ -6,7 +6,7 @@ test.describe('Authentication', () => {
   test('sign up, confirm the email, log in and log out', async ({ page }) => {
     const email = await signUpAndLogIn(page);
 
-    await expect(page.getByRole('heading', { name: 'Mis colecciones' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Mi estantería' })).toBeVisible();
 
     await page.locator('.user-menu-button').click();
     await expect(page.locator('.user-menu')).toContainText(email);
@@ -66,14 +66,14 @@ test.describe('Authentication', () => {
     await register(page, email);
     await confirm(page, email);
 
-    await page.goto('/collections/pending-tomes');
+    await page.goto('/pending');
     await expect(page).toHaveURL(/\/login\?returnUrl=/);
 
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Contraseña').fill(password);
     await page.getByRole('button', { name: 'Entrar' }).click();
 
-    await expect(page).toHaveURL(/\/collections\/pending-tomes$/);
+    await expect(page).toHaveURL(/\/pending$/);
   });
 
   test('changing the password keeps this session and replaces the old password', async ({ page }) => {
@@ -87,8 +87,8 @@ test.describe('Authentication', () => {
     await expect(page.locator('.alert.success')).toBeVisible();
 
     // The session survives because the response carried a fresh token.
-    await page.getByRole('link', { name: 'Mis colecciones', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Mis colecciones' })).toBeVisible();
+    await page.getByRole('link', { name: 'Estantería', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Mi estantería' })).toBeVisible();
 
     await page.locator('.user-menu-button').click();
     await page.getByRole('button', { name: 'Cerrar sesión' }).click();

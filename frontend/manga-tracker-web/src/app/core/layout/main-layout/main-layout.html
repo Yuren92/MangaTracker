@@ -1,19 +1,15 @@
 <div class="app-shell">
   <header class="app-header">
-    <a routerLink="/" class="brand">
-      Manga Tracker
+    <a routerLink="/" class="brand" aria-label="Manga Tracker, ir a mi estantería">
+      Manga<span>Tracker</span>
     </a>
 
     <nav class="nav" aria-label="Navegación principal">
       @if (authState.isAuthenticated()) {
-        <a routerLink="/catalog/search" routerLinkActive="active" ariaCurrentWhenActive="page">Buscar</a>
-        <a
-          routerLink="/collections"
-          routerLinkActive="active"
-          ariaCurrentWhenActive="page"
-          [routerLinkActiveOptions]="{ exact: true }"
-        >Mis colecciones</a>
-        <a routerLink="/collections/pending-tomes" routerLinkActive="active" ariaCurrentWhenActive="page">Pendientes</a>
+        <!-- Also active inside a series (/collections/:id): it is part of the shelf. -->
+        <a routerLink="/collections" routerLinkActive="active" ariaCurrentWhenActive="page">Estantería</a>
+        <a routerLink="/pending" routerLinkActive="active" ariaCurrentWhenActive="page">Me faltan</a>
+        <a routerLink="/catalog/search" routerLinkActive="active" ariaCurrentWhenActive="page">Añadir serie</a>
 
         <div class="user-menu">
           <button
@@ -21,23 +17,20 @@
             class="user-menu-button"
             aria-controls="user-menu-panel"
             [attr.aria-expanded]="isUserMenuOpen()"
+            [attr.aria-label]="'Mi cuenta' + (authState.currentUser() ? ': ' + authState.currentUser()!.email : '')"
             (click)="toggleUserMenu()"
           >
-            <span class="user-menu-label">
-              @if (authState.currentUser(); as user) {
-                {{ user.email }}
-              } @else {
-                Mi cuenta
-              }
-            </span>
-
-            <span aria-hidden="true">▾</span>
+            <span class="avatar" aria-hidden="true">{{ initial() }}</span>
           </button>
 
           @if (isUserMenuOpen()) {
             <!-- Disclosure pattern (button + aria-expanded), not an ARIA menu: role="menu"
                  would promise arrow-key navigation that a two-link panel does not need. -->
             <div class="user-menu-panel" id="user-menu-panel">
+              @if (authState.currentUser(); as user) {
+                <p class="user-email">{{ user.email }}</p>
+              }
+
               <a routerLink="/change-password" (click)="closeUserMenu()">
                 Cambiar contraseña
               </a>

@@ -1,153 +1,110 @@
 <section class="page">
-  <a class="back-link" routerLink="/collections">
-    ← Mis colecciones
-  </a>
+  <a class="back" routerLink="/collections">← Estantería</a>
+
+  <app-alert type="error" [message]="errorMessage()" />
 
   @if (isLoading()) {
-    <div class="state-card">
-      Cargando colección...
-    </div>
-  }
-
-  @if (errorMessage()) {
-    <div class="alert error" role="alert">
-      {{ errorMessage() }}
-    </div>
+    <p class="state">Cargando la serie…</p>
   }
 
   @if (collection(); as collection) {
-    <header class="collection-header">
-      <div class="cover">
-        @if (collection.imageUrl) {
-          <img [src]="collection.imageUrl" [alt]="'Portada de ' + collection.title" />
-        } @else {
-          <div class="no-image">Sin imagen</div>
-        }
-      </div>
+    <header class="series-head">
+      @if (collection.imageUrl) {
+        <img class="cover" [src]="collection.imageUrl" [alt]="'Portada de ' + collection.title" />
+      } @else {
+        <div class="cover-missing">Sin portada</div>
+      }
 
-      <div class="collection-info">
-        <p class="eyebrow">Mi colección</p>
+      <div class="series-info">
+        <h1 class="page-title">{{ collection.title }}</h1>
+        <p class="lede">{{ collection.publisherName ?? 'Editorial desconocida' }}</p>
 
-        <h1>{{ collection.title }}</h1>
+        <div class="progress-block">
+          <div class="obi-progress large" aria-hidden="true">
+            <span [style.width.%]="progress()"></span>
+          </div>
+          <p class="count" data-testid="series-count">
+            @if (collection.totalTomes > 0 && collection.pendingTomes === 0) {
+              <strong>Serie completa</strong> · {{ collection.totalTomes | tomes }}
+            } @else {
+              <strong>{{ collection.ownedTomes }}</strong> de {{ collection.totalTomes | tomes }} en casa
+            }
+          </p>
+        </div>
 
-        <p class="publisher">
-          {{ collection.publisherName ?? 'Editorial desconocida' }}
-        </p>
+        <div class="series-actions">
+          @if (collection.pendingTomes > 0) {
+            <button type="button" class="btn" [disabled]="isMarkingAll()" (click)="markAllAsOwned()">
+              {{ isMarkingAll() ? 'Marcando…' : 'Los tengo todos' }}
+            </button>
+          }
 
-        <div class="stats">
-          <span>{{ collection.totalTomes }} tomos</span>
-          <span>{{ collection.ownedTomes }} comprados</span>
-          <span>{{ collection.pendingTomes }} pendientes</span>
+          <button type="button" class="remove" [disabled]="isDeleting()" (click)="removeFromShelf()">
+            {{ isDeleting() ? 'Quitando…' : 'Quitar de la estantería' }}
+          </button>
         </div>
       </div>
     </header>
 
-    <section class="tomes-section">
-      <div class="tomes-header">
-        <h2>Tomos</h2>
-
-        <div class="tome-controls">
-          <label>
-            Ver
-            <select
-              [value]="tomeFilter()"
-              (change)="tomeFilter.set($any($event.target).value)"
-            >
-              <option value="all">Todos</option>
-              <option value="owned">Comprados</option>
-              <option value="pending">Pendientes</option>
-            </select>
-          </label>
-
-          <label>
-            Orden
-            <select
-              [value]="tomeOrder()"
-              (change)="tomeOrder.set($any($event.target).value)"
-            >
-              <option value="normal">Normal</option>
-              <option value="reverse">Inverso</option>
-            </select>
-          </label>
-
-          @if (collection.pendingTomes > 0) {
-            <button
-              type="button"
-              class="mark-all-button"
-              [disabled]="isMarkingAllAsOwned()"
-              (click)="markAllAsOwned()"
-            >
-              @if (isMarkingAllAsOwned()) {
-                Marcando...
-              } @else {
-                Marcar todos como comprados
-              }
-            </button>
-          } @else {
-            <button type="button" class="mark-all-button all-owned" disabled>
-              Todos comprados
-            </button>
-          }
-        </div>
+    <div class="shelf-bar">
+      <div class="filters" role="group" aria-label="Qué tomos ver">
+        <button type="button" [attr.aria-pressed]="filter() === 'all'" (click)="filter.set('all')">
+          Todos <span>{{ collection.totalTomes }}</span>
+        </button>
+        <button type="button" [attr.aria-pressed]="filter() === 'missing'" (click)="filter.set('missing')">
+          Me faltan <span>{{ collection.pendingTomes }}</span>
+        </button>
+        <button type="button" [attr.aria-pressed]="filter() === 'owned'" (click)="filter.set('owned')">
+          Los tengo <span>{{ collection.ownedTomes }}</span>
+        </button>
       </div>
 
-      @if (filteredOrderedTomes().length === 0) {
-        <div class="state-card">
-          No hay tomos para este filtro.
-        </div>
-      } @else {
-        <div class="tomes-grid">
-          @for (tome of filteredOrderedTomes(); track tome.tomeId) {
-            <article class="tome-card" [class.owned]="tome.isOwned">
-              <div class="tome-cover">
+      <p class="hint">Pulsa un tomo para marcar si lo tienes.</p>
+    </div>
+
+    @if (visibleTomes().length === 0) {
+      <div class="empty">
+        @if (filter() === 'missing') {
+          <h2>No te falta ninguno</h2>
+          <p>Tienes todos los tomos publicados de esta serie.</p>
+        } @else {
+          <h2>Aún no tienes ninguno</h2>
+          <p>Pulsa los tomos que ya tienes en casa para marcarlos.</p>
+        }
+      </div>
+    } @else {
+      <ol class="tome-grid" role="list">
+        @for (tome of visibleTomes(); track tome.tomeId) {
+          <li>
+            <button
+              type="button"
+              class="tome"
+              [class.owned]="tome.isOwned"
+              [class.updating]="isUpdating(tome.tomeId)"
+              [attr.aria-pressed]="tome.isOwned"
+              [attr.aria-label]="tomeLabel(tome)"
+              [disabled]="isUpdating(tome.tomeId)"
+              (click)="toggle(tome)"
+            >
+              <span class="tome-cover">
                 @if (tome.imageUrl) {
-                  <img
-                    [src]="tome.imageUrl"
-                    [alt]="'Portada del tomo ' + (tome.issueNumber || 'sin número')"
-                    loading="lazy"
-                    decoding="async"
-                  />
+                  <img class="cover" [src]="tome.imageUrl" alt="" loading="lazy" decoding="async" />
                 } @else {
-                  <div class="no-image">Sin imagen</div>
+                  <span class="cover-missing">Sin portada</span>
                 }
-              </div>
 
-              <div class="tome-content">
-                <div>
-                  <p class="issue-number">
-                    Tomo {{ tome.issueNumber || 'sin número' }}
-                  </p>
+                <span class="obi" aria-hidden="true">{{ tome.issueNumber || '·' }}</span>
+              </span>
 
-                  <h3>{{ tome.title ?? 'Sin título' }}</h3>
+              <span class="tome-title">{{ tome.title ?? 'Sin título' }}</span>
 
-                  @if (tome.storeDate) {
-                    <p class="date">
-                      Publicado: {{ tome.storeDate | date: 'longDate' }}
-                    </p>
-                  }
-                </div>
-
-                <button
-                  type="button"
-                  class="owned-state"
-                  [class.is-owned]="tome.isOwned"
-                  [attr.aria-pressed]="tome.isOwned"
-                  [disabled]="isTomeUpdating(tome.tomeId)"
-                  (click)="toggleTomeOwnership(tome.tomeId, tome.isOwned)"
-                >
-                  @if (isTomeUpdating(tome.tomeId)) {
-                    Actualizando...
-                  } @else if (tome.isOwned) {
-                    Comprado
-                  } @else {
-                    Marcar comprado
-                  }
-                </button>
-              </div>
-            </article>
-          }
-        </div>
-      }
-    </section>
+              @if (tome.storeDate) {
+                <span class="tome-date">{{ tome.storeDate | date: 'MMM y' }}</span>
+              }
+            </button>
+          </li>
+        }
+      </ol>
+    }
   }
 </section>

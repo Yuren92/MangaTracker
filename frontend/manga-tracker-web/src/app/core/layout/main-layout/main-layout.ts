@@ -1,4 +1,4 @@
-import { Component, HostListener, inject, signal } from '@angular/core';
+import { Component, computed, HostListener, inject, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 import { AuthState } from '../../auth/auth-state';
@@ -12,6 +12,9 @@ import { AuthState } from '../../auth/auth-state';
 export class MainLayout {
   readonly authState = inject(AuthState);
   readonly isUserMenuOpen = signal(false);
+
+  // First letter of the email for the account button; the full email lives in the panel.
+  readonly initial = computed(() => this.authState.currentUser()?.email.charAt(0) ?? '·');
 
   private readonly router = inject(Router);
 
