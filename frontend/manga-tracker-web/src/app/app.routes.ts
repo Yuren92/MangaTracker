@@ -65,29 +65,34 @@ export const routes: Routes = [
           import('./features/auth/pages/change-password-page/change-password-page').then(m => m.ChangePasswordPage)
       },
       {
+        // Old address, kept so bookmarks and earlier links still work.
         path: 'collections/pending-tomes',
-        title: 'Tomos pendientes · Manga Tracker',
+        redirectTo: 'pending'
+      },
+      {
+        path: 'pending',
+        title: 'Me faltan · Manga Tracker',
         canActivate: [authGuard],
         loadComponent: () =>
           import('./features/collections/pages/pending-tomes-page/pending-tomes-page').then(m => m.PendingTomesPage)
       },
       {
         path: 'collections/:collectionId',
-        title: 'Colección · Manga Tracker',
+        title: 'Serie · Manga Tracker',
         canActivate: [authGuard],
         loadComponent: () =>
           import('./features/collections/pages/user-collection-detail-page/user-collection-detail-page').then(m => m.UserCollectionDetailPage)
       },
       {
         path: 'collections',
-        title: 'Mis colecciones · Manga Tracker',
+        title: 'Mi estantería · Manga Tracker',
         canActivate: [authGuard],
         loadComponent: () =>
           import('./features/collections/pages/user-collections-page/user-collections-page').then(m => m.UserCollectionsPage)
       },
       {
         path: 'catalog/search',
-        title: 'Buscar series · Manga Tracker',
+        title: 'Añadir serie · Manga Tracker',
         canActivate: [authGuard],
         loadComponent: () =>
           import('./features/catalog/pages/catalog-search-page/catalog-search-page').then(m => m.CatalogSearchPage)

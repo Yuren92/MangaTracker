@@ -1,231 +1,109 @@
-.page-header {
+.undo {
   display: flex;
-  justify-content: space-between;
-  gap: 18px;
-  align-items: flex-start;
-  margin-bottom: 24px;
   flex-wrap: wrap;
-}
-
-.eyebrow {
-  margin: 0 0 6px;
-  color: #4f46e5;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 0.78rem;
-}
-
-h1 {
-  margin: 0;
-  color: #111827;
-  font-size: 2rem;
-}
-
-.subtitle {
-  margin: 8px 0 0;
-  color: #6b7280;
-  max-width: 680px;
-}
-
-.primary-link,
-.secondary-link,
-.empty-state a {
-  border-radius: 12px;
-  padding: 11px 14px;
-  font-weight: 900;
-  text-decoration: none;
-}
-
-.primary-link {
-  background: #4f46e5;
-  color: white;
-}
-
-.secondary-link {
-  display: inline-block;
-  background: #111827;
-  color: white;
-  text-align: center;
-}
-
-.state-card,
-.alert,
-.empty-state {
-  background: white;
-  border-radius: 18px;
-  padding: 22px;
-  box-shadow: var(--card-shadow);
-}
-
-.alert.error {
-  background: #fee2e2;
-  color: #991b1b;
-  font-weight: 800;
-}
-
-.empty-state {
-  h2 {
-    margin: 0;
-    color: #111827;
-  }
-
-  p {
-    color: #6b7280;
-    margin: 8px 0 18px;
-  }
-
-  a {
-    display: inline-block;
-    background: #4f46e5;
-    color: white;
-  }
-}
-
-.tomes-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-  gap: 18px;
-}
-
-.tome-card {
-  background: white;
-  border-radius: 18px;
-  overflow: hidden;
-  box-shadow: var(--card-shadow);
-  display: flex;
-  flex-direction: column;
-}
-
-.cover {
-  height: 260px;
-  background: #f3f4f6;
-  display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 10px;
-  overflow: hidden;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-bottom: 24px;
+  padding: 10px 16px;
+  border-left: 4px solid var(--obi-deep);
+  border-radius: var(--radius);
+  background: var(--ok-soft);
 
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    display: block;
+  .link {
+    border: 0;
+    background: none;
+    font-size: 0.95rem;
+    cursor: pointer;
   }
 }
 
-.no-image {
-  height: 100%;
-  display: grid;
-  place-items: center;
-  color: #6b7280;
-  font-weight: 900;
+.series + .series {
+  margin-top: 48px;
 }
 
-.tome-content {
-  padding: 14px;
+.series-head {
   display: flex;
-  flex: 1;
-  flex-direction: column;
+  flex-wrap: wrap;
+  align-items: baseline;
   justify-content: space-between;
-  gap: 14px;
+  gap: 4px 16px;
+  padding-bottom: 12px;
+  margin-bottom: 20px;
+  border-bottom: 2px solid var(--ink);
 
   h2 {
-    margin: 4px 0 0;
-    color: #111827;
-    font-size: 0.95rem;
-    line-height: 1.25;
+    font-size: 1.3rem;
+
+    a {
+      text-decoration: none;
+
+      &:hover {
+        text-decoration: underline;
+        text-decoration-color: var(--obi-deep);
+        text-decoration-thickness: 2px;
+        text-underline-offset: 4px;
+      }
+    }
   }
 }
 
-.collection-name {
-  margin: 0;
-  color: #111827;
-  font-weight: 900;
-}
-
-.publisher {
-  margin: 4px 0 0;
-  color: #4b5563;
-  font-size: 0.88rem;
-  font-weight: 800;
-}
-
-.issue-number {
-  margin: 12px 0 0;
-  color: #4f46e5;
-  font-weight: 900;
-  font-size: 0.95rem;
-}
-
-.date {
-  margin: 8px 0 0;
-  color: #6b7280;
-  font-size: 0.88rem;
-}
-
-.tome-actions {
+// Grid, faded covers and the obi band are shared (styles.scss).
+.tome {
   display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.tome-actions .primary-button,
-.tome-actions .secondary-link {
-  flex: 1;
+// The next tome to buy keeps its colour: it is the one worth looking at.
+.tome.next {
+  .cover,
+  .cover-missing {
+    filter: none;
+    opacity: 1;
+    box-shadow: 0 10px 20px rgba(27, 31, 59, 0.16);
+  }
+
+  .obi {
+    color: var(--ink);
+  }
 }
 
-.primary-button {
+// A ribbon on the cover, so it does not push the row out of line.
+.next-label {
+  position: absolute;
+  top: 8px;
+  left: -4px;
+  padding: 1px 8px;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+// One per tome, so it stays light: a line, not a box.
+.own {
+  margin-top: auto;
+  align-self: flex-start;
+  min-height: 36px;
+  padding: 0 2px;
   border: 0;
-  border-radius: 12px;
-  padding: 11px 14px;
-  background: #4f46e5;
-  color: white;
-  font-weight: 900;
+  border-bottom: 2px solid var(--line);
+  border-radius: 0;
+  background: none;
+  color: var(--ink);
+  font-size: 0.85rem;
+  font-weight: 700;
   cursor: pointer;
-  text-align: center;
 
-  &:hover {
-    background: #4338ca;
+  &:hover:not(:disabled) {
+    border-bottom-color: var(--obi-deep);
   }
 
   &:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-}
-
-@media (max-width: 520px) {
-  .page {
-    padding: 24px 12px;
-  }
-
-  h1 {
-    font-size: 1.65rem;
-  }
-
-  .tomes-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .cover {
-    height: 220px;
-  }
-
-  .tome-card {
-    max-width: 360px;
-    width: 100%;
-    margin: 0 auto;
-  }
-
-  .tome-actions {
-    flex-direction: column;
-  }
-
-  .tome-actions .primary-button,
-  .tome-actions .secondary-link {
-    width: 100%;
-    flex: none;
-    box-sizing: border-box;
+    color: var(--tone);
+    cursor: progress;
   }
 }

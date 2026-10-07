@@ -1,150 +1,117 @@
 import { DatePipe } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
-import { CollectionsApi } from '../../services/collections-api';
-import { UserCollectionDetail } from '../../models/collections.models';
 import { getApiErrorMessage } from '../../../../core/http/api-error';
+import { AppAlert } from '../../../../shared/components/app-alert/app-alert';
+import { TomesPipe } from '../../../../shared/pipes/tomes.pipe';
+import { UserCollectionDetail, UserCollectionTome } from '../../models/collections.models';
+import { CollectionsApi } from '../../services/collections-api';
 
-type TomeFilter = 'all' | 'owned' | 'pending';
-type TomeOrder = 'normal' | 'reverse';
+type TomeFilter = 'all' | 'missing' | 'owned';
 
 @Component({
   selector: 'app-user-collection-detail-page',
-  imports: [RouterLink, DatePipe],
+  imports: [RouterLink, DatePipe, AppAlert, TomesPipe],
   templateUrl: './user-collection-detail-page.html',
-  styleUrl: './user-collection-detail-page.scss',
+  styleUrl: './user-collection-detail-page.scss'
 })
 export class UserCollectionDetailPage implements OnInit {
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly collectionsApi = inject(CollectionsApi);
 
   readonly collection = signal<UserCollectionDetail | null>(null);
-  readonly isLoading = signal(false);
+  readonly isLoading = signal(true);
   readonly errorMessage = signal<string | null>(null);
-  readonly updatingTomeIds = signal<Set<string>>(new Set<string>());
-  readonly isMarkingAllAsOwned = signal(false);
+  readonly updatingTomeIds = signal<ReadonlySet<string>>(new Set<string>());
+  readonly isMarkingAll = signal(false);
+  readonly isDeleting = signal(false);
+  readonly filter = signal<TomeFilter>('all');
 
-  readonly tomeFilter = signal<TomeFilter>('all');
-  readonly tomeOrder = signal<TomeOrder>('normal');
-
-  readonly filteredOrderedTomes = computed(() => {
+  readonly progress = computed(() => {
     const collection = this.collection();
 
-    if (!collection) {
-      return [];
+    return collection && collection.totalTomes > 0
+      ? Math.round((collection.ownedTomes / collection.totalTomes) * 100)
+      : 0;
+  });
+
+  // The API already returns tomes in reading order (number, then specials).
+  readonly visibleTomes = computed(() => {
+    const tomes = this.collection()?.tomes ?? [];
+
+    switch (this.filter()) {
+      case 'missing':
+        return tomes.filter(tome => !tome.isOwned);
+      case 'owned':
+        return tomes.filter(tome => tome.isOwned);
+      default:
+        return tomes;
     }
-
-    let tomes = collection.tomes;
-
-    if (this.tomeFilter() === 'owned') {
-      tomes = tomes.filter((tome) => tome.isOwned);
-    }
-
-    if (this.tomeFilter() === 'pending') {
-      tomes = tomes.filter((tome) => !tome.isOwned);
-    }
-
-    const orderedTomes = [...tomes].sort((left, right) => {
-      const leftNumber = left.normalizedNumber ?? Number.MAX_SAFE_INTEGER;
-      const rightNumber = right.normalizedNumber ?? Number.MAX_SAFE_INTEGER;
-
-      return leftNumber - rightNumber;
-    });
-
-    if (this.tomeOrder() === 'reverse') {
-      orderedTomes.reverse();
-    }
-
-    return orderedTomes;
   });
 
   ngOnInit(): void {
     const collectionId = this.route.snapshot.paramMap.get('collectionId');
 
     if (!collectionId) {
-      this.errorMessage.set('No se ha encontrado la colección.');
+      this.isLoading.set(false);
+      this.errorMessage.set('No se ha encontrado la serie.');
       return;
     }
 
-    this.loadCollection(collectionId);
-  }
-
-  private loadCollection(collectionId: string): void {
-    this.isLoading.set(true);
-    this.errorMessage.set(null);
-
     this.collectionsApi.getCollectionDetail(collectionId).subscribe({
-      next: (collection) => {
+      next: collection => {
         this.collection.set(collection);
         this.isLoading.set(false);
       },
-      error: (error) => {
-        this.errorMessage.set(
-          getApiErrorMessage(error, 'No se ha podido cargar la colección.')
-        );
-
+      error: error => {
+        this.errorMessage.set(getApiErrorMessage(error, 'No se ha podido cargar la serie.'));
         this.isLoading.set(false);
-      },
+      }
     });
   }
 
-  toggleTomeOwnership(tomeId: string, isOwned: boolean): void {
-    const collection = this.collection();
+  tomeLabel(tome: UserCollectionTome): string {
+    const number = tome.issueNumber ? `Tomo ${tome.issueNumber}` : 'Tomo sin número';
+    const title = tome.title ? `, ${tome.title}` : '';
 
-    if (!collection) {
-      return;
-    }
-
-    this.setTomeUpdating(tomeId, true);
-
-    const request = isOwned
-      ? this.collectionsApi.unmarkTomeAsOwned(collection.id, tomeId)
-      : this.collectionsApi.markTomeAsOwned(collection.id, tomeId);
-
-    request.subscribe({
-      next: (result) => {
-        this.collection.update((current) => {
-          if (!current) {
-            return current;
-          }
-
-          return {
-            ...current,
-            ownedTomes: result.ownedTomes,
-            pendingTomes: result.pendingTomes,
-            tomes: current.tomes.map((tome) =>
-              tome.tomeId === result.tomeId ? { ...tome, isOwned: result.isOwned } : tome,
-            ),
-          };
-        });
-
-        this.setTomeUpdating(tomeId, false);
-      },
-      error: (error) => {
-        this.errorMessage.set(
-          getApiErrorMessage(error, 'No se ha podido actualizar el tomo.')
-        );
-        this.setTomeUpdating(tomeId, false);
-      },
-    });
+    return `${number}${title}`;
   }
 
-  isTomeUpdating(tomeId: string): boolean {
+  isUpdating(tomeId: string): boolean {
     return this.updatingTomeIds().has(tomeId);
   }
 
-  private setTomeUpdating(tomeId: string, isUpdating: boolean): void {
-    this.updatingTomeIds.update((current) => {
-      const next = new Set(current);
+  toggle(tome: UserCollectionTome): void {
+    const collection = this.collection();
 
-      if (isUpdating) {
-        next.add(tomeId);
-      } else {
-        next.delete(tomeId);
+    if (!collection || this.isUpdating(tome.tomeId)) {
+      return;
+    }
+
+    this.setUpdating(tome.tomeId, true);
+    this.errorMessage.set(null);
+
+    const request = tome.isOwned
+      ? this.collectionsApi.unmarkTomeAsOwned(collection.id, tome.tomeId)
+      : this.collectionsApi.markTomeAsOwned(collection.id, tome.tomeId);
+
+    request.subscribe({
+      next: result => {
+        this.collection.update(current => current && {
+          ...current,
+          ownedTomes: result.ownedTomes,
+          pendingTomes: result.pendingTomes,
+          tomes: current.tomes.map(item =>
+            item.tomeId === result.tomeId ? { ...item, isOwned: result.isOwned } : item)
+        });
+        this.setUpdating(tome.tomeId, false);
+      },
+      error: error => {
+        this.errorMessage.set(getApiErrorMessage(error, 'No se ha podido actualizar el tomo.'));
+        this.setUpdating(tome.tomeId, false);
       }
-
-      return next;
     });
   }
 
@@ -155,36 +122,64 @@ export class UserCollectionDetailPage implements OnInit {
       return;
     }
 
-    this.isMarkingAllAsOwned.set(true);
+    this.isMarkingAll.set(true);
     this.errorMessage.set(null);
 
     this.collectionsApi.markAllTomesAsOwned(collection.id).subscribe({
       next: result => {
-        this.collection.update(current => {
-          if (!current) {
-            return current;
-          }
-
-          return {
-            ...current,
-            ownedTomes: result.ownedTomes,
-            pendingTomes: result.pendingTomes,
-            tomes: current.tomes.map(tome => ({
-              ...tome,
-              isOwned: true
-            }))
-          };
+        this.collection.update(current => current && {
+          ...current,
+          ownedTomes: result.ownedTomes,
+          pendingTomes: result.pendingTomes,
+          tomes: current.tomes.map(tome => ({ ...tome, isOwned: true }))
         });
-
-        this.isMarkingAllAsOwned.set(false);
+        this.isMarkingAll.set(false);
       },
       error: error => {
-        this.errorMessage.set(
-          getApiErrorMessage(error, 'No se han podido marcar todos los tomos.')
-        );
-
-        this.isMarkingAllAsOwned.set(false);
+        this.errorMessage.set(getApiErrorMessage(error, 'No se han podido marcar todos los tomos.'));
+        this.isMarkingAll.set(false);
       }
+    });
+  }
+
+  removeFromShelf(): void {
+    const collection = this.collection();
+
+    if (!collection) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `¿Quitar «${collection.title}» de tu estantería? Se perderá qué tomos tienes marcados.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    this.isDeleting.set(true);
+    this.errorMessage.set(null);
+
+    this.collectionsApi.deleteCollection(collection.id).subscribe({
+      next: () => this.router.navigateByUrl('/collections'),
+      error: error => {
+        this.errorMessage.set(getApiErrorMessage(error, 'No se ha podido quitar la serie.'));
+        this.isDeleting.set(false);
+      }
+    });
+  }
+
+  private setUpdating(tomeId: string, isUpdating: boolean): void {
+    this.updatingTomeIds.update(current => {
+      const next = new Set(current);
+
+      if (isUpdating) {
+        next.add(tomeId);
+      } else {
+        next.delete(tomeId);
+      }
+
+      return next;
     });
   }
 }
