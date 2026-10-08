@@ -1,6 +1,9 @@
 using System.Net.Http.Json;
 using AwesomeAssertions;
+using MangaTracker.Application.Catalog.SyncCatalog;
+using MangaTracker.Tests.Fakes;
 using MangaTracker.Tests.Integration.Infrastructure;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace MangaTracker.Tests.Integration;
 
@@ -15,37 +18,41 @@ public sealed class SyncTests
     }
 
     [Fact]
-    public async Task Sync_should_respect_the_cooldown_and_refresh_due_collections()
+    public async Task A_tome_published_in_comic_vine_should_reach_every_collector_after_the_catalog_sync()
     {
         var (user, _) = await TestUsers.CreateSignedInAsync(_factory);
         var import = await user.PostAsJsonAsync(
             "/api/collections/import-comic-vine-volume",
-            new { apiDetailUrl = FakeComicVineClient.BerserkUrl });
+            new { apiDetailUrl = FakeComicVineClient.GrowingVolumeUrl });
         import.EnsureSuccessStatusCode();
 
-        // Just imported: inside the 24 hour cooldown, Comic Vine is not called.
-        var fresh = await SyncAsync(user);
-        fresh.SkippedCollections.Should().Be(1);
-        fresh.SyncedCollections.Should().Be(0);
+        (await PendingCountAsync(user)).Should().Be(3);
 
-        using (_factory.Clock.Advance(TimeSpan.FromHours(25)))
-        {
-            var due = await SyncAsync(user);
+        // Comic Vine publishes tome 54 of the volume.
+        _factory.ComicVine.AddIssue(FakeComicVineClient.GrowingVolumeUrl, ComicVineIssues.Summary(54));
 
-            due.SyncedCollections.Should().Be(1);
-            due.NewTomes.Should().Be(0, "every issue of the volume is already stored");
+        var first = await SyncCatalogAsync();
+        first.Completed.Should().BeTrue();
+        first.ChangedEditions.Should().BeGreaterThanOrEqualTo(1);
+        (await PendingCountAsync(user)).Should().Be(4, "the new tome is missing from the user's shelf");
 
-            var again = await SyncAsync(user);
-            again.SkippedCollections.Should().Be(1, "the sync above restarted the cooldown");
-        }
+        // Nothing new since: the edition no longer counts as changed.
+        var second = await SyncCatalogAsync();
+        second.NewTomes.Should().Be(0);
+        (await PendingCountAsync(user)).Should().Be(4);
     }
 
-    private static async Task<SyncResult> SyncAsync(HttpClient client)
+    private async Task<SyncCatalogResult> SyncCatalogAsync()
     {
-        var response = await client.PostAsync("/api/collections/sync", null);
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<SyncResult>())!;
+        using var scope = _factory.Services.CreateScope();
+        return await scope.ServiceProvider.GetRequiredService<SyncCatalogHandler>().HandleAsync();
     }
 
-    private sealed record SyncResult(int SyncedCollections, int SkippedCollections, int NewTomes);
+    private static async Task<int> PendingCountAsync(HttpClient client)
+    {
+        var pending = await client.GetFromJsonAsync<PendingResult>("/api/collections/pending-tomes");
+        return pending!.Items.Count;
+    }
+
+    private sealed record PendingResult(IReadOnlyCollection<object> Items);
 }

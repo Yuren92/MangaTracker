@@ -3,10 +3,10 @@
     <div>
       <h1 class="page-title">Me faltan</h1>
 
-      @if (pendingTomes().length > 0) {
+      @if (released().length > 0) {
         <p class="lede count">
-          <strong>{{ pendingTomes().length }}</strong>
-          {{ pendingTomes().length === 1 ? 'tomo' : 'tomos' }} de
+          <strong>{{ released().length }}</strong>
+          {{ released().length === 1 ? 'tomo' : 'tomos' }} de
           {{ series().length }} {{ series().length === 1 ? 'serie' : 'series' }}
         </p>
       }
@@ -24,13 +24,15 @@
 
   @if (isLoading()) {
     <p class="state">Cargando lo que te falta…</p>
-  } @else if (pendingTomes().length === 0 && !errorMessage()) {
+  } @else if (released().length === 0 && !errorMessage()) {
     <div class="empty">
       <h2>No te falta ningún tomo</h2>
       <p>Tienes todo lo publicado de tus series. Cuando salga un tomo nuevo aparecerá aquí.</p>
       <a class="btn btn-quiet" routerLink="/catalog/search">Añadir otra serie</a>
     </div>
-  } @else {
+  }
+
+  @if (!isLoading()) {
     @for (group of series(); track group.collectionId) {
       <section class="series" [attr.aria-labelledby]="'series-' + group.collectionId">
         <header class="series-head">
@@ -77,6 +79,27 @@
               >
                 {{ isUpdating(tome.tomeId) ? 'Guardando…' : 'Lo tengo' }}
               </button>
+            </li>
+          }
+        </ol>
+      </section>
+    }
+
+    @if (upcoming().length > 0) {
+      <section class="upcoming" aria-labelledby="upcoming-title">
+        <header class="series-head">
+          <h2 id="upcoming-title">Próximamente</h2>
+          <span class="count">Anunciados, aún no a la venta</span>
+        </header>
+
+        <ol class="upcoming-list" role="list">
+          @for (tome of upcoming(); track tome.tomeId) {
+            <li>
+              <time [attr.datetime]="tome.storeDate">{{ tome.storeDate | date: 'd MMM y' }}</time>
+              <a [routerLink]="['/collections', tome.collectionId]">{{ tome.seriesTitle }}</a>
+              <span class="upcoming-tome">
+                {{ tomeName(tome) }}@if (tome.tomeTitle) {<span>: {{ tome.tomeTitle }}</span>}
+              </span>
             </li>
           }
         </ol>

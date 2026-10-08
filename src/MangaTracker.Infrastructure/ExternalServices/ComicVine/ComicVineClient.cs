@@ -6,6 +6,7 @@ using System.Text.Json.Serialization;
 using MangaTracker.Application.Abstractions;
 using MangaTracker.Application.ComicVine.Dtos;
 using MangaTracker.Application.Common.Exceptions;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using Polly.CircuitBreaker;
 using Polly.Timeout;
@@ -31,15 +32,25 @@ public sealed class ComicVineClient : IComicVineClient
     private const string IssueFields =
         "id,issue_number,name,image,cover_date,store_date,site_detail_url,api_detail_url";
 
+    // Short-lived cache for what users ask for repeatedly: the same search typed by many
+    // people, and a volume previewed and then added a moment later (which used to fetch
+    // it twice). Long enough to save those requests, short enough that new issues show
+    // up within minutes; the daily catalog sync compares issue counts, not cached data.
+    private static readonly TimeSpan SearchCacheDuration = TimeSpan.FromMinutes(30);
+    private static readonly TimeSpan VolumeCacheDuration = TimeSpan.FromMinutes(10);
+
     private readonly HttpClient _httpClient;
     private readonly ComicVineOptions _options;
+    private readonly IMemoryCache _cache;
 
     public ComicVineClient(
         HttpClient httpClient,
-        IOptions<ComicVineOptions> options)
+        IOptions<ComicVineOptions> options,
+        IMemoryCache cache)
     {
         _httpClient = httpClient;
         _options = options.Value;
+        _cache = cache;
     }
 
     public async Task<IReadOnlyCollection<ComicVineVolumeSearchResultDto>> SearchVolumesAsync(
@@ -55,6 +66,57 @@ public sealed class ComicVineClient : IComicVineClient
         }
 
         var safeLimit = Math.Clamp(limit, 1, 50);
+        var cacheKey = $"comicvine:search:{safeLimit}:{cleanQuery.ToLowerInvariant()}";
+
+        if (_cache.TryGetValue(cacheKey, out IReadOnlyCollection<ComicVineVolumeSearchResultDto>? cached))
+        {
+            return cached!;
+        }
+
+        var results = await FetchSearchAsync(cleanQuery, safeLimit, cancellationToken);
+        _cache.Set(cacheKey, results, SearchCacheDuration);
+
+        return results;
+    }
+
+    public async Task<IReadOnlyDictionary<int, int>> GetVolumeIssueCountsAsync(
+        IReadOnlyCollection<int> comicVineVolumeIds,
+        CancellationToken cancellationToken = default)
+    {
+        var counts = new Dictionary<int, int>();
+
+        // Comic Vine filters accept several values separated by "|", so one request
+        // covers up to a full page of volumes.
+        foreach (var batch in comicVineVolumeIds.Where(id => id > 0).Distinct().Chunk(PageSize))
+        {
+            var url = "volumes/" +
+                      $"?api_key={Uri.EscapeDataString(_options.ApiKey)}" +
+                      "&format=json" +
+                      $"&filter=id:{string.Join('|', batch)}" +
+                      "&field_list=id,count_of_issues" +
+                      $"&limit={PageSize}";
+
+            var response = await GetComicVineResponseAsync<ComicVineListResponse<ComicVineVolumeResource>>(
+                url,
+                cancellationToken);
+
+            foreach (var volume in response?.Results ?? [])
+            {
+                if (volume.Id > 0 && volume.CountOfIssues is int count)
+                {
+                    counts[volume.Id] = count;
+                }
+            }
+        }
+
+        return counts;
+    }
+
+    private async Task<IReadOnlyCollection<ComicVineVolumeSearchResultDto>> FetchSearchAsync(
+        string cleanQuery,
+        int safeLimit,
+        CancellationToken cancellationToken)
+    {
 
         var url = "search/" +
                   $"?api_key={Uri.EscapeDataString(_options.ApiKey)}" +
@@ -94,6 +156,30 @@ public sealed class ComicVineClient : IComicVineClient
     {
         var url = BuildComicVineApiUrl(apiDetailUrl, VolumeFields);
 
+        // Keyed by the validated path, never by the raw input or the URL with the key.
+        var cacheKey = $"comicvine:volume:{new Uri(url).AbsolutePath.ToLowerInvariant()}";
+
+        if (_cache.TryGetValue(cacheKey, out ComicVineVolumeDetailDto? cached))
+        {
+            return cached;
+        }
+
+        var volume = await FetchVolumeAsync(url, apiDetailUrl, cancellationToken);
+
+        // "Not found" is not cached: it may be a transient gap on Comic Vine's side.
+        if (volume is not null)
+        {
+            _cache.Set(cacheKey, volume, VolumeCacheDuration);
+        }
+
+        return volume;
+    }
+
+    private async Task<ComicVineVolumeDetailDto?> FetchVolumeAsync(
+        string url,
+        string apiDetailUrl,
+        CancellationToken cancellationToken)
+    {
         var response = await GetComicVineResponseAsync<ComicVineSingleResponse<ComicVineVolumeResource>>(
             url,
             cancellationToken);

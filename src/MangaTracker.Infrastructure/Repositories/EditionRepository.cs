@@ -1,4 +1,5 @@
 ﻿using MangaTracker.Application.Abstractions;
+using MangaTracker.Application.Catalog.SyncCatalog;
 using MangaTracker.Domain.Entities;
 using MangaTracker.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -26,14 +27,31 @@ public sealed class EditionRepository : IEditionRepository
                 cancellationToken);
     }
 
-    public Task<Edition?> GetByIdAsync(
+    public Task<Edition?> GetByIdWithTomesAsync(
         Guid editionId,
         CancellationToken cancellationToken = default)
     {
         return _dbContext.Editions
+            .Include(edition => edition.Tomes)
             .FirstOrDefaultAsync(
                 edition => edition.Id == editionId,
                 cancellationToken);
+    }
+
+    public async Task<IReadOnlyCollection<EditionSyncCandidate>> GetSyncCandidatesAsync(
+        CancellationToken cancellationToken = default)
+    {
+        // One query; the tome count is a subquery. Editions nobody collects any more are
+        // not worth a Comic Vine request.
+        return await _dbContext.Editions
+            .AsNoTracking()
+            .Where(edition => edition.UserCollections.Any())
+            .OrderBy(edition => edition.ComicVineVolumeId)
+            .Select(edition => new EditionSyncCandidate(
+                edition.Id,
+                edition.ComicVineVolumeId,
+                edition.Tomes.Count))
+            .ToListAsync(cancellationToken);
     }
 
     public async Task AddAsync(

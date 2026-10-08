@@ -27,8 +27,7 @@ export default async function globalSetup(): Promise<void> {
         // Many sign-ups and logins happen within a minute from the same machine.
         'RateLimiting__auth-sensitive': '1000',
         'RateLimiting__external-api': '1000',
-        'RateLimiting__comic-vine-import': '1000',
-        'RateLimiting__collection-sync': '1000'
+        'RateLimiting__comic-vine-import': '1000'
       }
     });
 

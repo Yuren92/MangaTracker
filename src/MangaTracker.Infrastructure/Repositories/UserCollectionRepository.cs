@@ -56,20 +56,6 @@ public sealed class UserCollectionRepository : IUserCollectionRepository
         await _dbContext.UserCollections.AddAsync(userCollection, cancellationToken);
     }
 
-    public async Task<IReadOnlyCollection<UserCollection>> GetAllByUserIdAsync(
-        Guid userId,
-        CancellationToken cancellationToken = default)
-    {
-        // Used by the sync, which only needs each edition and its tomes; owned tomes and
-        // series are not loaded.
-        return await _dbContext.UserCollections
-            .Include(collection => collection.Edition)
-                .ThenInclude(edition => edition.Tomes)
-            .Where(collection => collection.UserId == userId)
-            .AsSplitQuery()
-            .ToListAsync(cancellationToken);
-    }
-
     public void Remove(UserCollection userCollection)
     {
         _dbContext.UserCollections.Remove(userCollection);

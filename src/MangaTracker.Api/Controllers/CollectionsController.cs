@@ -7,7 +7,6 @@ using MangaTracker.Application.Collections.GetUserCollections;
 using MangaTracker.Application.Collections.ImportComicVineVolume;
 using MangaTracker.Application.Collections.MarkAllTomesAsOwned;
 using MangaTracker.Application.Collections.MarkTomeAsOwned;
-using MangaTracker.Application.Collections.SyncUserCollections;
 using MangaTracker.Application.Collections.UnmarkTomeAsOwned;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -29,7 +28,6 @@ public sealed class CollectionsController : ControllerBase
     private readonly ImportComicVineVolumeHandler _importComicVineVolumeHandler;
     private readonly MarkAllTomesAsOwnedHandler _markAllTomesAsOwnedHandler;
     private readonly DeleteUserCollectionHandler _deleteUserCollectionHandler;
-    private readonly SyncUserCollectionsHandler _syncUserCollectionsHandler;
 
     public CollectionsController(
         ICurrentUserService currentUserService,
@@ -40,8 +38,7 @@ public sealed class CollectionsController : ControllerBase
         GetPendingTomesHandler getPendingTomesHandler,
         ImportComicVineVolumeHandler importComicVineVolumeHandler,
         MarkAllTomesAsOwnedHandler markAllTomesAsOwnedHandler,
-        DeleteUserCollectionHandler deleteUserCollectionHandler,
-        SyncUserCollectionsHandler syncUserCollectionsHandler)
+        DeleteUserCollectionHandler deleteUserCollectionHandler)
     {
         _currentUserService = currentUserService;
         _getUserCollectionsHandler = getUserCollectionsHandler;
@@ -52,7 +49,6 @@ public sealed class CollectionsController : ControllerBase
         _importComicVineVolumeHandler = importComicVineVolumeHandler;
         _markAllTomesAsOwnedHandler = markAllTomesAsOwnedHandler;
         _deleteUserCollectionHandler = deleteUserCollectionHandler;
-        _syncUserCollectionsHandler = syncUserCollectionsHandler;
     }
 
     [HttpGet]
@@ -161,18 +157,6 @@ public sealed class CollectionsController : ControllerBase
             new DeleteUserCollectionCommand(
                 UserId: _currentUserService.UserId,
                 CollectionId: collectionId),
-            cancellationToken);
-
-        return Ok(result);
-    }
-
-    [EnableRateLimiting(RateLimitPolicies.CollectionSync)]
-    [HttpPost("sync")]
-    public async Task<ActionResult<SyncUserCollectionsResult>> SyncUserCollections(
-        CancellationToken cancellationToken)
-    {
-        var result = await _syncUserCollectionsHandler.HandleAsync(
-            new SyncUserCollectionsCommand(_currentUserService.UserId),
             cancellationToken);
 
         return Ok(result);

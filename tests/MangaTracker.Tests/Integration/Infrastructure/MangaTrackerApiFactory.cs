@@ -70,9 +70,11 @@ public sealed class MangaTrackerApiFactory : WebApplicationFactory<Program>, IAs
             services.RemoveAll<IComicVineClient>();
             services.AddSingleton<IComicVineClient>(ComicVine);
 
-            var cleanupService = services.Single(descriptor =>
-                descriptor.ImplementationType == typeof(AuthCleanupBackgroundService));
-            services.Remove(cleanupService);
+            // Background jobs are run explicitly by the tests that cover them.
+            services.Remove(services.Single(descriptor =>
+                descriptor.ImplementationType == typeof(AuthCleanupBackgroundService)));
+            services.Remove(services.Single(descriptor =>
+                descriptor.ImplementationType == typeof(CatalogSyncBackgroundService)));
 
             // The test server has no client IP, so every request would share one
             // rate limit bucket. Give each request its own address instead; rate

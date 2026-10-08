@@ -103,16 +103,12 @@ public sealed class Edition
         LastSyncedAt = syncedAt;
     }
 
-    // Records a sync attempt that could not refresh the data (volume missing or
-    // provider error), so the edition waits for the cooldown like any other instead
-    // of staying first in the sync queue and blocking the rest.
+    // Records a sync attempt that could not refresh the data (Comic Vine no longer has
+    // the volume), so LastSyncedAt still says when it was last looked at.
     public void MarkSyncAttempted(DateTimeOffset attemptedAt)
     {
         LastSyncedAt = attemptedAt;
     }
-
-    // Editions that were never synced count from their import date.
-    public DateTimeOffset LastRefreshedAt => LastSyncedAt ?? ImportedAt;
 
     // True when every issue Comic Vine reports for the volume has a tome stored.
     public bool HasAllTomes(int storedTomes)

@@ -18,8 +18,49 @@
   }
 }
 
-.series + .series {
+.series + .series,
+.upcoming {
   margin-top: 48px;
+}
+
+// Not on sale yet: a plain dated list rather than covers, so it reads as a calendar.
+.upcoming-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  li {
+    display: grid;
+    grid-template-columns: 9rem minmax(0, 14rem) 1fr;
+    gap: 4px 16px;
+    align-items: baseline;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
+
+    @media (max-width: 560px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  time {
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+  }
+
+  a {
+    color: var(--ink);
+    font-weight: 700;
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+      text-decoration-color: var(--obi-deep);
+    }
+  }
+}
+
+.upcoming-tome {
+  color: var(--ink-soft);
 }
 
 .series-head {

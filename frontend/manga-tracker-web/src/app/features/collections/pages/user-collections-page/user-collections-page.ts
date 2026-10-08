@@ -19,7 +19,6 @@ export class UserCollectionsPage implements OnInit {
   readonly collections = signal<UserCollectionSummary[]>([]);
   readonly isLoading = signal(true);
   readonly errorMessage = signal<string | null>(null);
-  readonly syncMessage = signal<string | null>(null);
 
   readonly totals = computed(() => {
     const collections = this.collections();
@@ -41,16 +40,13 @@ export class UserCollectionsPage implements OnInit {
       : Math.round((collection.ownedTomes / collection.totalTomes) * 100);
   }
 
+  // New tomes from Comic Vine are added by the server's daily catalog sync, so the
+  // shelf only reads what is stored.
   private loadCollections(): void {
     this.collectionsApi.getCollections().subscribe({
       next: response => {
         this.collections.set(response.items);
         this.isLoading.set(false);
-
-        // The shelf shows local data at once; new tomes from Comic Vine arrive after the sync.
-        if (response.items.length > 0) {
-          this.syncCollections();
-        }
       },
       error: error => {
         this.errorMessage.set(
@@ -58,31 +54,6 @@ export class UserCollectionsPage implements OnInit {
         );
         this.isLoading.set(false);
       }
-    });
-  }
-
-  // Silent unless it finds something: a banner on every visit would only be noise.
-  private syncCollections(): void {
-    this.collectionsApi.syncCollections().subscribe({
-      next: result => {
-        if (result.newTomes === 0) {
-          return;
-        }
-
-        this.syncMessage.set(
-          result.newTomes === 1
-            ? 'Ha salido un tomo nuevo en tus series. Ya lo tienes en «Me faltan».'
-            : `Han salido ${result.newTomes} tomos nuevos en tus series. Ya los tienes en «Me faltan».`
-        );
-
-        this.collectionsApi.getCollections().subscribe({
-          next: response => this.collections.set(response.items),
-          // If the reload fails, the shelf already on screen stays.
-          error: () => undefined
-        });
-      },
-      // Syncing is a bonus: a failure leaves the shelf as it is.
-      error: () => undefined
     });
   }
 }

@@ -3,18 +3,16 @@ using MangaTracker.Domain.Entities;
 
 namespace MangaTracker.Tests.Fakes;
 
-// Navigation properties are populated by EF Core when entities are loaded and have
-// private setters. Tests use this to build entities as if they came from the database.
+// Navigation collections are populated by EF Core when entities are loaded and are not
+// writable from outside. Tests use this to build entities as if they came from the database.
 public static class PersistedEntities
 {
-    public static UserCollection CollectionFor(Edition edition, Guid userId)
+    public static void AddTome(Edition edition, Tome tome)
     {
-        var collection = new UserCollection(userId: userId, editionId: edition.Id);
+        var tomes = (List<Tome>)typeof(Edition)
+            .GetField("_tomes", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(edition)!;
 
-        typeof(UserCollection)
-            .GetProperty(nameof(UserCollection.Edition), BindingFlags.Instance | BindingFlags.Public)!
-            .SetValue(collection, edition);
-
-        return collection;
+        tomes.Add(tome);
     }
 }
