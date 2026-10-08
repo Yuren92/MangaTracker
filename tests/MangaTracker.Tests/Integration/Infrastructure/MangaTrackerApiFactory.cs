@@ -75,6 +75,11 @@ public sealed class MangaTrackerApiFactory : WebApplicationFactory<Program>, IAs
                 descriptor.ImplementationType == typeof(AuthCleanupBackgroundService)));
             services.Remove(services.Single(descriptor =>
                 descriptor.ImplementationType == typeof(CatalogSyncBackgroundService)));
+            services.Remove(services.Single(descriptor =>
+                descriptor.ImplementationType == typeof(TomeImportBackgroundService)));
+
+            services.RemoveAll<ITomeImportQueue>();
+            services.AddSingleton<ITomeImportQueue, InlineTomeImportQueue>();
 
             // The test server has no client IP, so every request would share one
             // rate limit bucket. Give each request its own address instead; rate

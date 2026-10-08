@@ -1,5 +1,6 @@
 using AwesomeAssertions;
 using MangaTracker.Application.Abstractions;
+using MangaTracker.Application.Catalog.EditionTomes;
 using MangaTracker.Application.Catalog.SyncCatalog;
 using MangaTracker.Application.ComicVine.Dtos;
 using MangaTracker.Application.Common.Exceptions;
@@ -19,22 +20,35 @@ public sealed class SyncCatalogHandlerTests
     private readonly ITomeRepository _tomeRepository = Substitute.For<ITomeRepository>();
     private readonly IComicVineClient _comicVineClient = Substitute.For<IComicVineClient>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
+    private readonly Dictionary<int, ComicVineVolumeSummaryDto> _comicVineVolumes = [];
 
     public SyncCatalogHandlerTests()
     {
         _tomeRepository
             .GetByComicVineApiDetailUrlsAsync(Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>())
             .Returns([]);
+
+        _comicVineClient
+            .GetVolumeSummariesAsync(Arg.Any<IReadOnlyCollection<int>>(), Arg.Any<CancellationToken>())
+            .Returns(call => call.Arg<IReadOnlyCollection<int>>()
+                .Where(_comicVineVolumes.ContainsKey)
+                .Select(id => _comicVineVolumes[id])
+                .ToList());
+
+        GivenIssuesAddedSince();
     }
 
     [Fact]
     public async Task Should_check_up_to_100_editions_per_request_and_load_nothing_when_none_changed()
     {
         var candidates = Enumerable.Range(1, 150)
-            .Select(volumeId => new EditionSyncCandidate(Guid.NewGuid(), volumeId, StoredTomes: 10))
+            .Select(volumeId => new EditionSyncCandidate(Guid.NewGuid(), volumeId, StoredTomes: 10, Now.AddDays(-3)))
             .ToList();
         GivenCandidates(candidates);
-        GivenIssueCounts(candidates.ToDictionary(candidate => candidate.ComicVineVolumeId, _ => 10));
+        foreach (var candidate in candidates)
+        {
+            GivenComicVineVolume(candidate.ComicVineVolumeId, issueCount: 10);
+        }
 
         var result = await CreateHandler().HandleAsync();
 
@@ -42,21 +56,22 @@ public sealed class SyncCatalogHandlerTests
         result.ChangedEditions.Should().Be(0);
         result.Completed.Should().BeTrue();
 
-        await _comicVineClient.Received(2).GetVolumeIssueCountsAsync(
+        await _comicVineClient.Received(2).GetVolumeSummariesAsync(
             Arg.Any<IReadOnlyCollection<int>>(), Arg.Any<CancellationToken>());
-        await _comicVineClient.DidNotReceiveWithAnyArgs().GetVolumeByApiDetailUrlAsync(default!, default);
+        await _comicVineClient.DidNotReceiveWithAnyArgs().GetIssuesAddedSinceAsync(default!, default, default);
         await _editionRepository.DidNotReceiveWithAnyArgs().GetByIdWithTomesAsync(default, default);
         await _unitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
     }
 
     [Fact]
-    public async Task Should_fetch_and_add_tomes_only_for_editions_that_grew()
+    public async Task Should_add_new_issues_from_one_shared_request_and_refresh_the_edition()
     {
         var unchanged = NewEdition(volumeId: 1, storedIssues: [1, 2]);
         var grown = NewEdition(volumeId: 2, storedIssues: [1, 2]);
         GivenCandidates([Candidate(unchanged), Candidate(grown)]);
-        GivenIssueCounts(new Dictionary<int, int> { [1] = 2, [2] = 3 });
-        GivenComicVineVolume(grown, issueNumbers: [1, 2, 3]);
+        GivenComicVineVolume(1, issueCount: 2);
+        GivenComicVineVolume(2, issueCount: 3, name: "Renamed volume");
+        GivenIssuesAddedSince(Issue(volumeId: 2, number: 3));
 
         var result = await CreateHandler().HandleAsync();
 
@@ -64,11 +79,55 @@ public sealed class SyncCatalogHandlerTests
         result.SyncedEditions.Should().Be(1);
         result.NewTomes.Should().Be(1);
 
-        await _editionRepository.DidNotReceive().GetByIdWithTomesAsync(unchanged.Id, Arg.Any<CancellationToken>());
         await _tomeRepository.Received(1).AddAsync(
             Arg.Is<Tome>(tome => tome.ComicVineIssueId == ComicVineIssues.Id(3)), Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _editionRepository.DidNotReceive().GetByIdWithTomesAsync(unchanged.Id, Arg.Any<CancellationToken>());
+
+        // No per-edition volume request and no full issue list: the batched data was enough.
+        await _comicVineClient.DidNotReceiveWithAnyArgs().GetVolumeByApiDetailUrlAsync(default!, default);
+        await _comicVineClient.DidNotReceiveWithAnyArgs().GetVolumeIssuesAsync(default, default);
+
+        grown.Name.Should().Be("Renamed volume");
         grown.LastSyncedAt.Should().Be(Now);
+    }
+
+    [Fact]
+    public async Task Should_ask_for_the_new_issues_of_every_changed_edition_at_once()
+    {
+        var first = NewEdition(volumeId: 1, storedIssues: [1], lastRefreshedAt: Now.AddDays(-2));
+        var second = NewEdition(volumeId: 2, storedIssues: [1], lastRefreshedAt: Now.AddDays(-10));
+        GivenCandidates([Candidate(first), Candidate(second)]);
+        GivenComicVineVolume(1, issueCount: 2);
+        GivenComicVineVolume(2, issueCount: 2);
+        GivenIssuesAddedSince(Issue(1, 2), Issue(2, 2));
+
+        var result = await CreateHandler().HandleAsync();
+
+        result.NewTomes.Should().Be(2);
+
+        // Since the oldest of their last syncs, with a day of margin.
+        await _comicVineClient.Received(1).GetIssuesAddedSinceAsync(
+            Arg.Is<IReadOnlyCollection<int>>(ids => ids.Order().SequenceEqual(new[] { 1, 2 })),
+            Now.AddDays(-11),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Should_download_the_full_list_for_an_edition_still_short_after_the_date_filter()
+    {
+        // A partial import: issues 2 and 3 are old, so the date filter does not return them.
+        var partial = NewEdition(volumeId: 1, storedIssues: [1]);
+        GivenCandidates([Candidate(partial)]);
+        GivenComicVineVolume(1, issueCount: 3);
+        _comicVineClient
+            .GetVolumeIssuesAsync(1, Arg.Any<CancellationToken>())
+            .Returns([ComicVineIssues.Detail(1), ComicVineIssues.Detail(2), ComicVineIssues.Detail(3)]);
+
+        var result = await CreateHandler().HandleAsync();
+
+        result.NewTomes.Should().Be(2);
+        await _comicVineClient.Received(1).GetVolumeIssuesAsync(1, Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -76,7 +135,6 @@ public sealed class SyncCatalogHandlerTests
     {
         var gone = NewEdition(volumeId: 9, storedIssues: [1]);
         GivenCandidates([Candidate(gone)]);
-        GivenIssueCounts([]);
 
         var result = await CreateHandler().HandleAsync();
 
@@ -87,9 +145,9 @@ public sealed class SyncCatalogHandlerTests
     [Fact]
     public async Task Should_stop_without_writing_when_comic_vine_is_down_while_checking()
     {
-        GivenCandidates([new EditionSyncCandidate(Guid.NewGuid(), 1, 1)]);
+        GivenCandidates([new EditionSyncCandidate(Guid.NewGuid(), 1, 1, Now)]);
         _comicVineClient
-            .GetVolumeIssueCountsAsync(Arg.Any<IReadOnlyCollection<int>>(), Arg.Any<CancellationToken>())
+            .GetVolumeSummariesAsync(Arg.Any<IReadOnlyCollection<int>>(), Arg.Any<CancellationToken>())
             .ThrowsAsync(new ExternalServiceUnavailableException("down", new HttpRequestException()));
 
         var result = await CreateHandler().HandleAsync();
@@ -105,10 +163,14 @@ public sealed class SyncCatalogHandlerTests
         var second = NewEdition(volumeId: 2, storedIssues: [1]);
         var third = NewEdition(volumeId: 3, storedIssues: [1]);
         GivenCandidates([Candidate(first), Candidate(second), Candidate(third)]);
-        GivenIssueCounts(new Dictionary<int, int> { [1] = 2, [2] = 2, [3] = 2 });
-        GivenComicVineVolume(first, issueNumbers: [1, 2]);
+        GivenComicVineVolume(1, issueCount: 2);
+        GivenComicVineVolume(2, issueCount: 2);
+        GivenComicVineVolume(3, issueCount: 2);
+        GivenIssuesAddedSince(Issue(1, 2));
+
+        // The second edition needs its full list (still short) and Comic Vine fails there.
         _comicVineClient
-            .GetVolumeByApiDetailUrlAsync(second.ComicVineApiDetailUrl, Arg.Any<CancellationToken>())
+            .GetVolumeIssuesAsync(2, Arg.Any<CancellationToken>())
             .ThrowsAsync(new ExternalServiceUnavailableException("down", new HttpRequestException()));
 
         var result = await CreateHandler().HandleAsync();
@@ -116,7 +178,6 @@ public sealed class SyncCatalogHandlerTests
         result.Completed.Should().BeFalse();
         result.SyncedEditions.Should().Be(1);
         _unitOfWork.Received(1).DiscardChanges();
-        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
         await _editionRepository.DidNotReceive().GetByIdWithTomesAsync(third.Id, Arg.Any<CancellationToken>());
     }
 
@@ -126,10 +187,11 @@ public sealed class SyncCatalogHandlerTests
         var broken = NewEdition(volumeId: 1, storedIssues: [1]);
         var healthy = NewEdition(volumeId: 2, storedIssues: [1]);
         GivenCandidates([Candidate(broken), Candidate(healthy)]);
-        GivenIssueCounts(new Dictionary<int, int> { [1] = 2, [2] = 2 });
-        GivenComicVineVolume(healthy, issueNumbers: [1, 2]);
-        _comicVineClient
-            .GetVolumeByApiDetailUrlAsync(broken.ComicVineApiDetailUrl, Arg.Any<CancellationToken>())
+        GivenComicVineVolume(1, issueCount: 2);
+        GivenComicVineVolume(2, issueCount: 2);
+        GivenIssuesAddedSince(Issue(1, 2), Issue(2, 2));
+        _editionRepository
+            .GetByIdWithTomesAsync(broken.Id, Arg.Any<CancellationToken>())
             .ThrowsAsync(new InvalidOperationException("unexpected data"));
 
         var result = await CreateHandler().HandleAsync();
@@ -146,9 +208,9 @@ public sealed class SyncCatalogHandlerTests
     {
         var edition = NewEdition(volumeId: 1, storedIssues: [1]);
         GivenCandidates([Candidate(edition)]);
-        GivenIssueCounts(new Dictionary<int, int> { [1] = 2 });
-        _comicVineClient
-            .GetVolumeByApiDetailUrlAsync(edition.ComicVineApiDetailUrl, Arg.Any<CancellationToken>())
+        GivenComicVineVolume(1, issueCount: 2);
+        _editionRepository
+            .GetByIdWithTomesAsync(edition.Id, Arg.Any<CancellationToken>())
             .ThrowsAsync(new OperationCanceledException());
 
         var act = () => CreateHandler().HandleAsync();
@@ -160,8 +222,8 @@ public sealed class SyncCatalogHandlerTests
     {
         return new SyncCatalogHandler(
             _editionRepository,
-            _tomeRepository,
             _comicVineClient,
+            new EditionTomeImporter(_editionRepository, _tomeRepository, _comicVineClient, _unitOfWork),
             _unitOfWork,
             new FakeTimeProvider(Now),
             NullLogger<SyncCatalogHandler>.Instance);
@@ -172,21 +234,25 @@ public sealed class SyncCatalogHandlerTests
         _editionRepository.GetSyncCandidatesAsync(Arg.Any<CancellationToken>()).Returns(candidates);
     }
 
-    private void GivenIssueCounts(Dictionary<int, int> counts)
+    private void GivenComicVineVolume(int volumeId, int issueCount, string? name = null)
     {
-        _comicVineClient
-            .GetVolumeIssueCountsAsync(Arg.Any<IReadOnlyCollection<int>>(), Arg.Any<CancellationToken>())
-            .Returns(call =>
-            {
-                var requested = call.Arg<IReadOnlyCollection<int>>();
-                IReadOnlyDictionary<int, int> answer = counts
-                    .Where(pair => requested.Contains(pair.Key))
-                    .ToDictionary(pair => pair.Key, pair => pair.Value);
-                return answer;
-            });
+        _comicVineVolumes[volumeId] = new ComicVineVolumeSummaryDto(
+            volumeId, name ?? $"Volume {volumeId}", null, issueCount, null, null, null);
     }
 
-    private Edition NewEdition(int volumeId, int[] storedIssues)
+    private void GivenIssuesAddedSince(params ComicVineIssueDetailDto[] issues)
+    {
+        _comicVineClient
+            .GetIssuesAddedSinceAsync(Arg.Any<IReadOnlyCollection<int>>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
+            .Returns(issues);
+    }
+
+    private static ComicVineIssueDetailDto Issue(int volumeId, int number)
+    {
+        return ComicVineIssues.Detail(number) with { ComicVineVolumeId = volumeId };
+    }
+
+    private Edition NewEdition(int volumeId, int[] storedIssues, DateTimeOffset? lastRefreshedAt = null)
     {
         var edition = new Edition(
             seriesId: Guid.NewGuid(),
@@ -205,34 +271,16 @@ public sealed class SyncCatalogHandlerTests
         }
 
         _editionRepository.GetByIdWithTomesAsync(edition.Id, Arg.Any<CancellationToken>()).Returns(edition);
+        _lastRefreshed[edition.Id] = lastRefreshedAt ?? Now.AddDays(-2);
 
         return edition;
     }
 
-    private static EditionSyncCandidate Candidate(Edition edition)
-    {
-        return new EditionSyncCandidate(edition.Id, edition.ComicVineVolumeId, edition.Tomes.Count);
-    }
+    private readonly Dictionary<Guid, DateTimeOffset> _lastRefreshed = [];
 
-    private void GivenComicVineVolume(Edition edition, int[] issueNumbers)
+    private EditionSyncCandidate Candidate(Edition edition)
     {
-        var volume = new ComicVineVolumeDetailDto(
-            ComicVineVolumeId: edition.ComicVineVolumeId,
-            Name: edition.Name,
-            PublisherName: null,
-            CountOfIssues: issueNumbers.Length,
-            ImageUrl: null,
-            StartYear: null,
-            Description: null,
-            SiteDetailUrl: null,
-            ApiDetailUrl: edition.ComicVineApiDetailUrl,
-            Issues: issueNumbers.Select(ComicVineIssues.Summary).ToList());
-
-        _comicVineClient
-            .GetVolumeByApiDetailUrlAsync(edition.ComicVineApiDetailUrl, Arg.Any<CancellationToken>())
-            .Returns(volume);
-        _comicVineClient
-            .GetVolumeIssuesAsync(edition.ComicVineVolumeId, Arg.Any<CancellationToken>())
-            .Returns(issueNumbers.Select(ComicVineIssues.Detail).ToList());
+        return new EditionSyncCandidate(
+            edition.Id, edition.ComicVineVolumeId, edition.Tomes.Count, _lastRefreshed[edition.Id]);
     }
 }

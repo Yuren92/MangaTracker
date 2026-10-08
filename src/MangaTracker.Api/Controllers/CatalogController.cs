@@ -1,5 +1,4 @@
 using MangaTracker.Api.RateLimiting;
-using MangaTracker.Application.Catalog.PreviewComicVineVolume;
 using MangaTracker.Application.Catalog.SearchCatalog;
 using MangaTracker.Application.ComicVine.Dtos;
 using Microsoft.AspNetCore.Authorization;
@@ -14,14 +13,10 @@ namespace MangaTracker.Api.Controllers;
 public sealed class CatalogController : ControllerBase
 {
     private readonly SearchCatalogHandler _searchCatalogHandler;
-    private readonly PreviewComicVineVolumeHandler _previewComicVineVolumeHandler;
 
-    public CatalogController(
-        SearchCatalogHandler searchCatalogHandler,
-        PreviewComicVineVolumeHandler previewComicVineVolumeHandler)
+    public CatalogController(SearchCatalogHandler searchCatalogHandler)
     {
         _searchCatalogHandler = searchCatalogHandler;
-        _previewComicVineVolumeHandler = previewComicVineVolumeHandler;
     }
 
     [EnableRateLimiting(RateLimitPolicies.ExternalApi)]
@@ -37,20 +32,4 @@ public sealed class CatalogController : ControllerBase
 
         return Ok(results);
     }
-
-    [EnableRateLimiting(RateLimitPolicies.ExternalApi)]
-    [HttpPost("comic-vine/volumes/preview")]
-    public async Task<ActionResult<ComicVineVolumeDetailDto>> PreviewComicVineVolume(
-        [FromBody] ComicVineVolumePreviewRequest request,
-        CancellationToken cancellationToken = default)
-    {
-        var volume = await _previewComicVineVolumeHandler.HandleAsync(
-            new PreviewComicVineVolumeQuery(request.ApiDetailUrl),
-            cancellationToken);
-
-        return Ok(volume);
-    }
 }
-
-public sealed record ComicVineVolumePreviewRequest(
-    string ApiDetailUrl);

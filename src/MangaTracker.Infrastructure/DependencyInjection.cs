@@ -122,6 +122,10 @@ public static class DependencyInjection
                 "CatalogSync:IntervalHours must be between 1 and 168.")
             .ValidateOnStart();
         services.AddHostedService<CatalogSyncBackgroundService>();
+
+        services.AddSingleton<TomeImportQueue>();
+        services.AddSingleton<ITomeImportQueue>(provider => provider.GetRequiredService<TomeImportQueue>());
+        services.AddHostedService<TomeImportBackgroundService>();
         services.AddTransient<ComicVineThrottlingHandler>();
 
         var comicVineHttpClient = services.AddHttpClient<IComicVineClient, ComicVineClient>((serviceProvider, client) =>

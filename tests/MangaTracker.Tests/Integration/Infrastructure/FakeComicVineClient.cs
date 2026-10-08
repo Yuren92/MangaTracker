@@ -60,15 +60,26 @@ public sealed class FakeComicVineClient : IComicVineClient
         return _volumes.GetValueOrDefault(apiDetailUrl);
     }
 
-    public Task<IReadOnlyDictionary<int, int>> GetVolumeIssueCountsAsync(
+    public Task<IReadOnlyCollection<ComicVineVolumeSummaryDto>> GetVolumeSummariesAsync(
         IReadOnlyCollection<int> comicVineVolumeIds, CancellationToken cancellationToken = default)
     {
-        IReadOnlyDictionary<int, int> counts = _volumes.Values
+        IReadOnlyCollection<ComicVineVolumeSummaryDto> summaries = _volumes.Values
             .Where(volume => comicVineVolumeIds.Contains(volume.ComicVineVolumeId))
-            .ToDictionary(volume => volume.ComicVineVolumeId, volume => volume.Issues.Count);
+            .Select(volume => new ComicVineVolumeSummaryDto(
+                volume.ComicVineVolumeId,
+                volume.Name,
+                volume.PublisherName,
+                volume.Issues.Count,
+                volume.ImageUrl,
+                volume.StartYear,
+                volume.SiteDetailUrl))
+            .ToList();
 
-        return Task.FromResult(counts);
+        return Task.FromResult(summaries);
     }
+
+    // When each issue was added to the fake catalog; the initial ones count as ancient.
+    private readonly Dictionary<string, DateTimeOffset> _addedAt = new(StringComparer.OrdinalIgnoreCase);
 
     // Publishes one more issue in a volume, as Comic Vine does when a new tome comes out.
     public void AddIssue(string volumeUrl, ComicVineIssueSummaryDto issue)
@@ -79,27 +90,43 @@ public sealed class FakeComicVineClient : IComicVineClient
             CountOfIssues = volume.Issues.Count + 1,
             Issues = [.. volume.Issues, issue]
         };
+        _addedAt[issue.ApiDetailUrl] = DateTimeOffset.UtcNow;
     }
 
     public Task<IReadOnlyCollection<ComicVineIssueDetailDto>> GetVolumeIssuesAsync(
         int comicVineVolumeId, CancellationToken cancellationToken = default)
     {
-        var issues = _volumes.Values
-            .Where(volume => volume.ComicVineVolumeId == comicVineVolumeId)
-            .SelectMany(volume => volume.Issues)
-            .Select(issue => new ComicVineIssueDetailDto(
-                issue.ComicVineIssueId,
-                issue.IssueNumber,
-                issue.NormalizedNumber,
-                issue.Title,
-                ImageUrl: null,
-                CoverDate: null,
-                StoreDate: null,
-                issue.SiteDetailUrl,
-                issue.ApiDetailUrl))
-            .ToList();
+        return Task.FromResult(IssuesOf([comicVineVolumeId], _ => true));
+    }
 
-        return Task.FromResult<IReadOnlyCollection<ComicVineIssueDetailDto>>(issues);
+    public Task<IReadOnlyCollection<ComicVineIssueDetailDto>> GetIssuesAddedSinceAsync(
+        IReadOnlyCollection<int> comicVineVolumeIds, DateTimeOffset since, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(IssuesOf(
+            comicVineVolumeIds,
+            issue => _addedAt.GetValueOrDefault(issue.ApiDetailUrl, DateTimeOffset.MinValue) >= since));
+    }
+
+    private IReadOnlyCollection<ComicVineIssueDetailDto> IssuesOf(
+        IReadOnlyCollection<int> volumeIds,
+        Func<ComicVineIssueSummaryDto, bool> include)
+    {
+        return _volumes.Values
+            .Where(volume => volumeIds.Contains(volume.ComicVineVolumeId))
+            .SelectMany(volume => volume.Issues
+                .Where(include)
+                .Select(issue => new ComicVineIssueDetailDto(
+                    issue.ComicVineIssueId,
+                    issue.IssueNumber,
+                    issue.NormalizedNumber,
+                    issue.Title,
+                    ImageUrl: null,
+                    CoverDate: null,
+                    StoreDate: null,
+                    issue.SiteDetailUrl,
+                    issue.ApiDetailUrl,
+                    volume.ComicVineVolumeId)))
+            .ToList();
     }
 
     private static ComicVineVolumeDetailDto Volume(int id, string name, string url, int firstIssue)

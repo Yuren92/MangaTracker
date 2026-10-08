@@ -1,8 +1,6 @@
 using AwesomeAssertions;
 using MangaTracker.Application.Abstractions;
-using MangaTracker.Application.Catalog.PreviewComicVineVolume;
 using MangaTracker.Application.Catalog.SearchCatalog;
-using MangaTracker.Application.ComicVine.Dtos;
 using MangaTracker.Application.Common.Exceptions;
 using NSubstitute;
 
@@ -39,18 +37,5 @@ public sealed class CatalogHandlersTests
         await new SearchCatalogHandler(_comicVineClient).HandleAsync(new SearchCatalogQuery("  one piece  ", requested));
 
         await _comicVineClient.Received(1).SearchVolumesAsync("one piece", expected, Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public async Task Preview_should_return_not_found_when_comic_vine_has_no_volume()
-    {
-        _comicVineClient
-            .GetVolumeByApiDetailUrlAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns((ComicVineVolumeDetailDto?)null);
-
-        var act = () => new PreviewComicVineVolumeHandler(_comicVineClient)
-            .HandleAsync(new PreviewComicVineVolumeQuery("https://comicvine.gamespot.com/api/volume/4050-1/"));
-
-        await act.Should().ThrowAsync<NotFoundException>();
     }
 }

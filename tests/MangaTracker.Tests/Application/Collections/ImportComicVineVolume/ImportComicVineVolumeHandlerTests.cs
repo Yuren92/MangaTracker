@@ -11,7 +11,6 @@ namespace MangaTracker.Tests.Application.Collections.ImportComicVineVolume;
 
 public sealed class ImportComicVineVolumeHandlerTests
 {
-    private const int VolumeId = 21397;
     private const string ApiDetailUrl = "https://comicvine.gamespot.com/api/volume/4050-21397/";
 
     private readonly IComicVineClient _comicVineClient = Substitute.For<IComicVineClient>();
@@ -19,6 +18,7 @@ public sealed class ImportComicVineVolumeHandlerTests
     private readonly IEditionRepository _editionRepository = Substitute.For<IEditionRepository>();
     private readonly ITomeRepository _tomeRepository = Substitute.For<ITomeRepository>();
     private readonly IUserCollectionRepository _userCollectionRepository = Substitute.For<IUserCollectionRepository>();
+    private readonly ITomeImportQueue _tomeImportQueue = Substitute.For<ITomeImportQueue>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
     private readonly Guid _userId = Guid.NewGuid();
 
@@ -80,29 +80,32 @@ public sealed class ImportComicVineVolumeHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_ShouldCreateSeriesEditionCollectionAndAllTomes_WhenVolumeIsNew()
+    public async Task HandleAsync_ShouldStoreTheSeriesAndQueueItsTomes_InsteadOfDownloadingThemInTheRequest()
     {
         GivenComicVineVolume(issueCount: 3);
-        GivenComicVineIssues(1, 2, 3);
+        _tomeImportQueue.IsPending(Arg.Any<Guid>()).Returns(true);
 
         var result = await CreateHandler().HandleAsync(Command());
 
         result.ComicVineVolumeId.Should().Be(21397);
         result.Title.Should().Be("One Piece");
-        result.PublisherName.Should().Be("Shueisha");
         result.TotalIssues.Should().Be(3);
-        result.ImportedTomes.Should().Be(3);
-        result.IsCompleted.Should().BeTrue();
+        result.ImportedTomes.Should().Be(0);
+        result.IsCompleted.Should().BeFalse();
+        result.TomesPending.Should().BeTrue();
 
         await _seriesRepository.Received(1).AddAsync(Arg.Any<Series>(), Arg.Any<CancellationToken>());
         await _editionRepository.Received(1).AddAsync(Arg.Any<Edition>(), Arg.Any<CancellationToken>());
         await _userCollectionRepository.Received(1).AddAsync(Arg.Any<UserCollection>(), Arg.Any<CancellationToken>());
-        await _tomeRepository.Received(3).AddAsync(Arg.Any<Tome>(), Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _tomeImportQueue.Received(1).EnqueueAsync(result.EditionId, Arg.Any<CancellationToken>());
+
+        await _comicVineClient.DidNotReceiveWithAnyArgs().GetVolumeIssuesAsync(default, default);
+        await _tomeRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
     }
 
     [Fact]
-    public async Task HandleAsync_ShouldNotCallComicVine_WhenEditionIsAlreadyFullyImported()
+    public async Task HandleAsync_ShouldNotCallComicVineNorQueueAnything_WhenEditionIsAlreadyFullyImported()
     {
         var edition = GivenExistingEdition(issueCount: 3, storedIssueNumbers: [1, 2, 3]);
 
@@ -111,8 +114,10 @@ public sealed class ImportComicVineVolumeHandlerTests
         result.EditionId.Should().Be(edition.Id);
         result.IsCompleted.Should().BeTrue();
         result.ImportedTomes.Should().Be(3);
+        result.TomesPending.Should().BeFalse();
 
         await _comicVineClient.DidNotReceiveWithAnyArgs().GetVolumeByApiDetailUrlAsync(default!, default);
+        await _tomeImportQueue.DidNotReceiveWithAnyArgs().EnqueueAsync(default, default);
         await _userCollectionRepository.Received(1).AddAsync(Arg.Any<UserCollection>(), Arg.Any<CancellationToken>());
     }
 
@@ -133,49 +138,18 @@ public sealed class ImportComicVineVolumeHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_ShouldResumeAPartialImport_AddingOnlyTheMissingTomes()
+    public async Task HandleAsync_ShouldQueueTheMissingTomes_WhenResumingAPartialImport()
     {
         // A previous import stored tomes 1 and 2 of a 4 issue volume.
-        GivenExistingEdition(issueCount: 4, storedIssueNumbers: [1, 2]);
+        var edition = GivenExistingEdition(issueCount: 4, storedIssueNumbers: [1, 2]);
         GivenComicVineVolume(issueCount: 4);
-        GivenComicVineIssues(1, 2, 3, 4);
 
         var result = await CreateHandler().HandleAsync(Command());
 
-        result.IsCompleted.Should().BeTrue();
         result.TotalIssues.Should().Be(4);
-        result.ImportedTomes.Should().Be(4);
-
-        await _comicVineClient.Received(1).GetVolumeIssuesAsync(VolumeId, Arg.Any<CancellationToken>());
-        await _tomeRepository.Received(2).AddAsync(Arg.Any<Tome>(), Arg.Any<CancellationToken>());
-        await _editionRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
-    }
-
-    [Fact]
-    public async Task HandleAsync_ShouldFetchAllIssuesInOneListRequest_InsteadOfOnePerIssue()
-    {
-        GivenComicVineVolume(issueCount: 120);
-        GivenComicVineIssues([.. Enumerable.Range(1, 120)]);
-
-        var result = await CreateHandler().HandleAsync(Command());
-
-        result.ImportedTomes.Should().Be(120);
-        await _comicVineClient.Received(1).GetVolumeIssuesAsync(VolumeId, Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public async Task HandleAsync_ShouldReportIncompleteImport_WhenAnIssueIsNotListedYet()
-    {
-        GivenComicVineVolume(issueCount: 3);
-        GivenComicVineIssues(1, 3);
-
-        var result = await CreateHandler().HandleAsync(Command());
-
-        result.IsCompleted.Should().BeFalse();
-        result.TotalIssues.Should().Be(3);
         result.ImportedTomes.Should().Be(2);
-
-        await _tomeRepository.Received(2).AddAsync(Arg.Any<Tome>(), Arg.Any<CancellationToken>());
+        await _tomeImportQueue.Received(1).EnqueueAsync(edition.Id, Arg.Any<CancellationToken>());
+        await _editionRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
     }
 
     [Fact]
@@ -184,7 +158,6 @@ public sealed class ImportComicVineVolumeHandlerTests
         // Regression: any stored tome used to make the edition count as fully imported.
         GivenExistingEdition(issueCount: 100, storedIssueNumbers: [1]);
         GivenComicVineVolume(issueCount: 2);
-        GivenComicVineIssues();
 
         var result = await CreateHandler().HandleAsync(Command());
 
@@ -196,7 +169,6 @@ public sealed class ImportComicVineVolumeHandlerTests
     public async Task HandleAsync_ShouldRetryFromACleanState_WhenAConcurrentImportWinsTheRace()
     {
         GivenComicVineVolume(issueCount: 1);
-        GivenComicVineIssues(1);
 
         _unitOfWork
             .SaveChangesAsync(Arg.Any<CancellationToken>())
@@ -204,9 +176,8 @@ public sealed class ImportComicVineVolumeHandlerTests
                 _ => throw new UniqueConstraintViolationException("conflict", new Exception()),
                 _ => Task.CompletedTask);
 
-        var result = await CreateHandler().HandleAsync(Command());
+        await CreateHandler().HandleAsync(Command());
 
-        result.IsCompleted.Should().BeTrue();
         _unitOfWork.Received(1).DiscardChanges();
         await _unitOfWork.Received(2).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
@@ -215,7 +186,6 @@ public sealed class ImportComicVineVolumeHandlerTests
     public async Task HandleAsync_ShouldReturnConflict_WhenTheRetryAlsoConflicts()
     {
         GivenComicVineVolume(issueCount: 1);
-        GivenComicVineIssues(1);
 
         _unitOfWork
             .SaveChangesAsync(Arg.Any<CancellationToken>())
@@ -235,6 +205,7 @@ public sealed class ImportComicVineVolumeHandlerTests
             _editionRepository,
             _tomeRepository,
             _userCollectionRepository,
+            _tomeImportQueue,
             new FakeTimeProvider(DateTimeOffset.UtcNow),
             _unitOfWork);
     }
@@ -261,8 +232,8 @@ public sealed class ImportComicVineVolumeHandlerTests
         var storedTomes = storedIssueNumbers
             .Select(number => new Tome(
                 editionId: edition.Id,
-                comicVineIssueId: IssueId(number),
-                comicVineApiDetailUrl: IssueUrl(number),
+                comicVineIssueId: ComicVineIssues.Id(number),
+                comicVineApiDetailUrl: ComicVineIssues.Url(number),
                 issueNumber: number.ToString(),
                 normalizedNumber: number))
             .ToList();
@@ -276,42 +247,20 @@ public sealed class ImportComicVineVolumeHandlerTests
 
     private void GivenComicVineVolume(int issueCount)
     {
-        var issues = Enumerable
-            .Range(1, issueCount)
-            .Select(number => new ComicVineIssueSummaryDto(
-                ComicVineIssueId: IssueId(number),
-                IssueNumber: number.ToString(),
-                NormalizedNumber: number,
-                Title: $"Volume {number}",
-                SiteDetailUrl: $"https://comicvine.gamespot.com/one-piece-{number}/4000-{IssueId(number)}/",
-                ApiDetailUrl: IssueUrl(number)))
-            .ToList();
-
         var volume = new ComicVineVolumeDetailDto(
             ComicVineVolumeId: 21397,
             Name: "One Piece",
             PublisherName: "Shueisha",
-            CountOfIssues: issues.Count,
+            CountOfIssues: issueCount,
             ImageUrl: "https://comicvine.gamespot.com/one-piece.jpg",
             StartYear: 1997,
             Description: "Japanese manga series.",
             SiteDetailUrl: "https://comicvine.gamespot.com/one-piece/4050-21397/",
             ApiDetailUrl: ApiDetailUrl,
-            Issues: issues);
+            Issues: Enumerable.Range(1, issueCount).Select(ComicVineIssues.Summary).ToList());
 
         _comicVineClient
             .GetVolumeByApiDetailUrlAsync(ApiDetailUrl, Arg.Any<CancellationToken>())
             .Returns(volume);
     }
-
-    private void GivenComicVineIssues(params int[] numbers)
-    {
-        _comicVineClient
-            .GetVolumeIssuesAsync(VolumeId, Arg.Any<CancellationToken>())
-            .Returns(numbers.Select(ComicVineIssues.Detail).ToList());
-    }
-
-    private static int IssueId(int number) => ComicVineIssues.Id(number);
-
-    private static string IssueUrl(int number) => ComicVineIssues.Url(number);
 }

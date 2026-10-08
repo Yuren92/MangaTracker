@@ -1,6 +1,7 @@
 using MangaTracker.Application.Abstractions;
+using MangaTracker.Application.Catalog.EditionTomes;
+using MangaTracker.Application.ComicVine.Dtos;
 using MangaTracker.Application.Common.Exceptions;
-using MangaTracker.Domain.Entities;
 using Microsoft.Extensions.Logging;
 
 namespace MangaTracker.Application.Catalog.SyncCatalog;
@@ -8,34 +9,43 @@ namespace MangaTracker.Application.Catalog.SyncCatalog;
 // Brings every collected edition up to date with Comic Vine, for all users at once:
 // editions are shared, so there is no point in each user syncing them separately.
 //
-// 1. One request per 100 editions asks Comic Vine how many issues each volume has.
-//    Its date_last_updated cannot be used for this: it does not change when an issue
-//    is added (https://comicvine.gamespot.com/forums/api-developers-2334/).
-// 2. Only editions with more issues than stored tomes are loaded and fetched (volume
-//    plus one request per 100 issues). That also resumes partial imports.
-// 3. Each edition is saved on its own, so a failure never loses the ones before it.
+// 1. One request per 100 editions returns each volume's name, publisher, cover and
+//    issue count. Its date_last_updated cannot be used: it does not change when an
+//    issue is added (https://comicvine.gamespot.com/forums/api-developers-2334/).
+// 2. Editions with more issues than stored tomes are the changed ones. Their new issues
+//    come from one shared request, filtered by volume and by date_added since the
+//    oldest of their last syncs (pages of 100 if there are more).
+// 3. An edition that still lacks tomes after that (a partial import: its missing issues
+//    are old, so the date filter skips them) downloads its full issue list.
+// 4. Each edition is saved on its own, so a failure never loses the ones before it.
+//
+// A run with nothing new costs one request per 100 editions; with changes, usually one more.
 public sealed class SyncCatalogHandler
 {
     public const int VolumesPerRequest = 100;
 
+    // Comic Vine's date_added is not documented with a time zone; a day of overlap
+    // makes sure nothing falls between two runs. Already stored issues are skipped.
+    private static readonly TimeSpan SinceMargin = TimeSpan.FromDays(1);
+
     private readonly IEditionRepository _editionRepository;
-    private readonly ITomeRepository _tomeRepository;
     private readonly IComicVineClient _comicVineClient;
+    private readonly EditionTomeImporter _tomeImporter;
     private readonly IUnitOfWork _unitOfWork;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<SyncCatalogHandler> _logger;
 
     public SyncCatalogHandler(
         IEditionRepository editionRepository,
-        ITomeRepository tomeRepository,
         IComicVineClient comicVineClient,
+        EditionTomeImporter tomeImporter,
         IUnitOfWork unitOfWork,
         TimeProvider timeProvider,
         ILogger<SyncCatalogHandler> logger)
     {
         _editionRepository = editionRepository;
-        _tomeRepository = tomeRepository;
         _comicVineClient = comicVineClient;
+        _tomeImporter = tomeImporter;
         _unitOfWork = unitOfWork;
         _timeProvider = timeProvider;
         _logger = logger;
@@ -44,20 +54,32 @@ public sealed class SyncCatalogHandler
     public async Task<SyncCatalogResult> HandleAsync(CancellationToken cancellationToken = default)
     {
         var candidates = await _editionRepository.GetSyncCandidatesAsync(cancellationToken);
-        var changed = new List<EditionSyncCandidate>();
+        var changed = new List<(EditionSyncCandidate Candidate, ComicVineVolumeSummaryDto Volume)>();
+        ILookup<int, ComicVineIssueDetailDto> newIssues;
 
         try
         {
             foreach (var batch in candidates.Chunk(VolumesPerRequest))
             {
-                var counts = await _comicVineClient.GetVolumeIssueCountsAsync(
-                    batch.Select(candidate => candidate.ComicVineVolumeId).ToList(),
-                    cancellationToken);
+                var volumes = (await _comicVineClient.GetVolumeSummariesAsync(
+                        batch.Select(candidate => candidate.ComicVineVolumeId).ToList(),
+                        cancellationToken))
+                    .ToDictionary(volume => volume.ComicVineVolumeId);
 
-                changed.AddRange(batch.Where(candidate =>
-                    counts.TryGetValue(candidate.ComicVineVolumeId, out var issueCount) &&
-                    issueCount > candidate.StoredTomes));
+                changed.AddRange(batch
+                    .Where(candidate =>
+                        volumes.TryGetValue(candidate.ComicVineVolumeId, out var volume) &&
+                        volume.CountOfIssues > candidate.StoredTomes)
+                    .Select(candidate => (candidate, volumes[candidate.ComicVineVolumeId])));
             }
+
+            newIssues = changed.Count == 0
+                ? Enumerable.Empty<ComicVineIssueDetailDto>().ToLookup(issue => 0)
+                : (await _comicVineClient.GetIssuesAddedSinceAsync(
+                        changed.Select(item => item.Candidate.ComicVineVolumeId).ToList(),
+                        changed.Min(item => item.Candidate.LastRefreshedAt) - SinceMargin,
+                        cancellationToken))
+                    .ToLookup(issue => issue.ComicVineVolumeId ?? 0);
         }
         catch (ExternalServiceUnavailableException exception)
         {
@@ -70,14 +92,11 @@ public sealed class SyncCatalogHandler
         var failed = 0;
         var newTomes = 0;
 
-        foreach (var candidate in changed)
+        foreach (var (candidate, volume) in changed)
         {
             try
             {
-                var added = await SyncEditionAsync(candidate.EditionId, cancellationToken);
-                await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-                newTomes += added;
+                newTomes += await SyncEditionAsync(candidate, volume, newIssues[volume.ComicVineVolumeId], cancellationToken);
                 synced++;
             }
             catch (ExternalServiceUnavailableException exception)
@@ -108,9 +127,13 @@ public sealed class SyncCatalogHandler
     }
 
     // Returns how many tomes were added.
-    private async Task<int> SyncEditionAsync(Guid editionId, CancellationToken cancellationToken)
+    private async Task<int> SyncEditionAsync(
+        EditionSyncCandidate candidate,
+        ComicVineVolumeSummaryDto volume,
+        IEnumerable<ComicVineIssueDetailDto> newIssues,
+        CancellationToken cancellationToken)
     {
-        var edition = await _editionRepository.GetByIdWithTomesAsync(editionId, cancellationToken);
+        var edition = await _editionRepository.GetByIdWithTomesAsync(candidate.EditionId, cancellationToken);
 
         if (edition is null)
         {
@@ -118,102 +141,39 @@ public sealed class SyncCatalogHandler
             return 0;
         }
 
-        var now = _timeProvider.GetUtcNow();
-
-        var volume = await _comicVineClient.GetVolumeByApiDetailUrlAsync(
-            edition.ComicVineApiDetailUrl,
-            cancellationToken);
-
-        if (volume is null)
-        {
-            edition.MarkSyncAttempted(now);
-            return 0;
-        }
-
+        // The batched list carries no description; the stored one is kept.
         edition.SyncDetails(
             name: volume.Name,
             publisherName: volume.PublisherName,
             startYear: volume.StartYear,
-            description: volume.Description,
+            description: edition.Description,
             imageUrl: volume.ImageUrl,
             siteDetailUrl: volume.SiteDetailUrl,
             issueCount: volume.CountOfIssues,
-            syncedAt: now);
+            syncedAt: _timeProvider.GetUtcNow());
 
-        var existingIssueUrls = edition.Tomes
-            .Select(tome => tome.ComicVineApiDetailUrl)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var storedBefore = edition.Tomes.Count;
+        var added = await _tomeImporter.AddMissingTomesAsync(edition, newIssues, cancellationToken);
 
-        var newIssueSummaries = volume.Issues
-            .Where(issue => !existingIssueUrls.Contains(issue.ApiDetailUrl))
-            .ToList();
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        if (newIssueSummaries.Count == 0)
+        if (storedBefore + added < volume.CountOfIssues)
         {
-            return 0;
+            // Still short: the missing issues predate the date filter (a partial import).
+            added += await _tomeImporter.ImportMissingTomesAsync(edition.Id, cancellationToken);
         }
 
-        // Tomes for these issues may already exist (e.g. stored under another edition);
-        // fetch them all at once rather than with one query per issue.
-        var storedTomesByUrl = (await _tomeRepository.GetByComicVineApiDetailUrlsAsync(
-                newIssueSummaries.Select(issue => issue.ApiDetailUrl).ToList(),
-                cancellationToken))
-            .ToDictionary(tome => tome.ComicVineApiDetailUrl, StringComparer.OrdinalIgnoreCase);
-
-        // The details of every issue of the volume, one request per 100 issues.
-        var issueDetails = (await _comicVineClient.GetVolumeIssuesAsync(volume.ComicVineVolumeId, cancellationToken))
-            .DistinctBy(issue => issue.ApiDetailUrl, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(issue => issue.ApiDetailUrl, StringComparer.OrdinalIgnoreCase);
-
-        var addedTomes = 0;
-
-        foreach (var issueSummary in newIssueSummaries)
-        {
-            if (!issueDetails.TryGetValue(issueSummary.ApiDetailUrl, out var issueDetail))
-            {
-                continue;
-            }
-
-            if (storedTomesByUrl.TryGetValue(issueDetail.ApiDetailUrl, out var existingTome))
-            {
-                existingTome.SyncDetails(
-                    issueNumber: issueDetail.IssueNumber,
-                    normalizedNumber: issueDetail.NormalizedNumber,
-                    title: issueDetail.Title,
-                    imageUrl: issueDetail.ImageUrl,
-                    coverDate: issueDetail.CoverDate,
-                    storeDate: issueDetail.StoreDate,
-                    siteDetailUrl: issueDetail.SiteDetailUrl);
-
-                continue;
-            }
-
-            await _tomeRepository.AddAsync(
-                new Tome(
-                    editionId: edition.Id,
-                    comicVineIssueId: issueDetail.ComicVineIssueId,
-                    comicVineApiDetailUrl: issueDetail.ApiDetailUrl,
-                    issueNumber: issueDetail.IssueNumber,
-                    normalizedNumber: issueDetail.NormalizedNumber,
-                    title: issueDetail.Title,
-                    imageUrl: issueDetail.ImageUrl,
-                    coverDate: issueDetail.CoverDate,
-                    storeDate: issueDetail.StoreDate,
-                    siteDetailUrl: issueDetail.SiteDetailUrl),
-                cancellationToken);
-
-            addedTomes++;
-        }
-
-        return addedTomes;
+        return added;
     }
 }
 
-// An edition someone collects, with the number of tomes stored for it.
+// An edition someone collects, with the number of tomes stored for it and when it was
+// last refreshed (its import date if it was never synced).
 public sealed record EditionSyncCandidate(
     Guid EditionId,
     int ComicVineVolumeId,
-    int StoredTomes);
+    int StoredTomes,
+    DateTimeOffset LastRefreshedAt);
 
 /// <param name="CheckedEditions">Collected editions compared with Comic Vine.</param>
 /// <param name="ChangedEditions">Editions with more issues in Comic Vine than tomes stored.</param>
