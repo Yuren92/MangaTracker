@@ -2,10 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 
 import { environment } from '../../../../environments/environment';
-import {
-  CatalogSearchResult,
-  ComicVineVolumePreview
-} from '../models/catalog.models';
+import { CatalogSearchResult } from '../models/catalog.models';
 
 @Injectable({
   providedIn: 'root'
@@ -22,13 +19,6 @@ export class CatalogApi {
     return this.http.get<CatalogSearchResult[]>(
       `${this.apiUrl}/api/catalog/search`,
       { params }
-    );
-  }
-
-  previewVolume(apiDetailUrl: string) {
-    return this.http.post<ComicVineVolumePreview>(
-      `${this.apiUrl}/api/catalog/comic-vine/volumes/preview`,
-      { apiDetailUrl }
     );
   }
 }

@@ -56,31 +56,53 @@
 }
 
 .edition {
-  position: relative;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  width: 100%;
-  height: 100%;
-  padding: 0;
-  border: 0;
-  background: none;
   color: var(--ink);
-  text-align: left;
-  text-decoration: none;
-  cursor: pointer;
+}
+
+.cover-wrap {
+  position: relative;
+  margin-bottom: 10px;
 
   .cover,
   .cover-missing {
-    margin-bottom: 10px;
     box-shadow: var(--card-shadow);
-    transition: transform 160ms ease, box-shadow 160ms ease;
+    transition: opacity 160ms ease;
   }
+}
 
-  &:hover .cover,
-  &:hover .cover-missing {
-    transform: translateY(-4px);
-    box-shadow: 0 14px 28px rgba(27, 31, 59, 0.18);
+// While the server stores the series the cover dims, so the card reads as busy
+// without blocking the page.
+.is-adding .cover-wrap .cover,
+.is-adding .cover-wrap .cover-missing {
+  opacity: 0.55;
+}
+
+// The signature element: once a series is on the shelf its cover wears an obi, the
+// paper band Japanese tomes are sold with. It slides up from the bottom edge.
+.obi-band {
+  position: absolute;
+  inset: auto 0 14%;
+  padding: 6px 8px;
+  background: var(--obi);
+  box-shadow: inset 0 -3px 0 var(--obi-deep), 0 2px 6px rgba(27, 31, 59, 0.25);
+  color: var(--ink);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: center;
+  animation: obi-on 260ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+@keyframes obi-on {
+  from {
+    transform: translateY(24px) scaleX(0.9);
+    opacity: 0;
   }
 }
 
@@ -92,108 +114,40 @@
 }
 
 .edition-title {
+  margin: 0;
   color: var(--ink-soft);
   font-size: 0.9rem;
 }
 
-// Already owned: the obi colour, because it is on the shelf.
-.badge {
-  position: absolute;
-  top: 10px;
-  left: -4px;
-  padding: 2px 8px;
-  background: var(--obi);
-  box-shadow: inset 0 -2px 0 var(--obi-deep);
-  font-size: 0.75rem;
-  font-weight: 700;
+.edition .count {
+  margin: 0;
 }
 
-// ---- Preview dialog ----------------------------------------------------------------
+// Pinned to the bottom so the buttons line up across a row of uneven titles.
+.action {
+  margin-top: auto;
+  padding-top: 12px;
 
-.preview {
-  width: min(720px, calc(100% - 32px));
-  max-height: calc(100% - 32px);
-  padding: 32px;
-  border: 0;
-  border-radius: var(--radius);
-  background: var(--paper);
-  color: var(--ink);
-  box-shadow: 0 30px 80px rgba(27, 31, 59, 0.35);
-
-  &::backdrop {
-    background: rgba(27, 31, 59, 0.6);
+  .btn {
+    width: 100%;
+    min-height: 40px;
   }
 
-  h2 {
-    font-family: var(--font-display);
-    font-weight: 400;
-    font-size: 1.8rem;
-    margin: 4px 0;
-  }
-
-  h3 {
-    margin: 20px 0 8px;
-    font-size: 0.95rem;
-  }
-
-  @media (max-width: 560px) {
-    padding: 24px 16px;
+  // Same height as the button it replaces, so the row does not jump when a series
+  // goes on the shelf.
+  .link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
   }
 }
 
-.close {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 40px;
-  height: 40px;
-  border: 0;
-  border-radius: 50%;
-  background: var(--shelf);
-  color: var(--ink);
-  font-size: 1.5rem;
-  line-height: 1;
-  cursor: pointer;
+.note {
+  margin: 6px 0 0;
+  color: var(--ink-soft);
+  font-size: 0.8rem;
 }
 
-.preview-body {
-  display: grid;
-  grid-template-columns: 200px 1fr;
-  gap: 28px;
-
-  @media (max-width: 560px) {
-    grid-template-columns: 1fr;
-
-    > .cover,
-    > .cover-missing {
-      max-width: 140px;
-    }
-  }
-}
-
-.issue-list {
-  list-style: none;
-  margin: 0 0 24px;
-  padding: 0;
-
-  li {
-    display: flex;
-    gap: 12px;
-    padding: 6px 0;
-    border-bottom: 1px solid var(--line);
-    font-size: 0.95rem;
-  }
-}
-
-.issue-number {
-  min-width: 2.5ch;
-  font-family: var(--font-display);
-  color: var(--tone);
-}
-
-.added {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px 16px;
+.note-error {
+  color: var(--alert);
 }

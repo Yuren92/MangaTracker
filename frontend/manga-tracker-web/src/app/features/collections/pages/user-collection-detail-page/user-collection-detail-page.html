@@ -10,7 +10,7 @@
   @if (collection(); as collection) {
     <header class="series-head">
       @if (collection.imageUrl) {
-        <img class="cover" [src]="collection.imageUrl" [alt]="'Portada de ' + collection.title" />
+        <img class="cover" [src]="collection.imageUrl | cover" [alt]="'Portada de ' + collection.title" />
       } @else {
         <div class="cover-missing">Sin portada</div>
       }
@@ -20,11 +20,13 @@
         <p class="lede">{{ collection.publisherName ?? 'Editorial desconocida' }}</p>
 
         <div class="progress-block">
-          <div class="obi-progress large" aria-hidden="true">
+          <div class="obi-progress large" [class.importing]="collection.isImporting" aria-hidden="true">
             <span [style.width.%]="progress()"></span>
           </div>
           <p class="count" data-testid="series-count">
-            @if (collection.totalTomes > 0 && collection.pendingTomes === 0) {
+            @if (collection.isImporting) {
+              Descargando los tomos de Comic Vine…
+            } @else if (collection.totalTomes > 0 && collection.pendingTomes === 0) {
               <strong>Serie completa</strong> · {{ collection.totalTomes | tomes }}
             } @else {
               <strong>{{ collection.ownedTomes }}</strong> de {{ collection.totalTomes | tomes }} en casa
@@ -33,7 +35,7 @@
         </div>
 
         <div class="series-actions">
-          @if (collection.pendingTomes > 0) {
+          @if (collection.pendingTomes > 0 && !collection.isImporting) {
             <button type="button" class="btn" [disabled]="isMarkingAll()" (click)="markAllAsOwned()">
               {{ isMarkingAll() ? 'Marcando…' : 'Los tengo todos' }}
             </button>
@@ -64,7 +66,10 @@
 
     @if (visibleTomes().length === 0) {
       <div class="empty">
-        @if (filter() === 'missing') {
+        @if (collection.isImporting) {
+          <h2>Descargando los tomos</h2>
+          <p>Llegan desde Comic Vine y aparecerán aquí en unos segundos.</p>
+        } @else if (filter() === 'missing') {
           <h2>No te falta ninguno</h2>
           <p>Tienes todos los tomos publicados de esta serie.</p>
         } @else {
@@ -88,7 +93,7 @@
             >
               <span class="tome-cover">
                 @if (tome.imageUrl) {
-                  <img class="cover" [src]="tome.imageUrl" alt="" loading="lazy" decoding="async" />
+                  <img class="cover" [src]="tome.imageUrl | cover" alt="" loading="lazy" decoding="async" />
                 } @else {
                   <span class="cover-missing">Sin portada</span>
                 }

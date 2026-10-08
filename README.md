@@ -14,8 +14,8 @@ Es un proyecto personal con el que quería practicar lo que no aparece en un CRU
 | Una serie en la estantería | Me faltan |
 | --- | --- |
 | ![Estantería de una serie: tomos que tienes en color con su faja amarilla, los que faltan atenuados](docs/images/collection-detail.png) | ![Tomos que faltan agrupados por serie, con el siguiente que toca comprar destacado](docs/images/pending-tomes.png) |
-| **Añadir serie: cada editorial es una edición** | **Vista previa antes de añadirla** |
-| ![Resultados de búsqueda con la editorial, el año y los tomos de cada edición](docs/images/catalog-search.png) | ![Vista previa de una edición con sus primeros tomos](docs/images/catalog-preview.png) |
+| **Añadir serie: cada editorial es una edición** | **Añadida sin esperar: la portada se pone la faja** |
+| ![Resultados de búsqueda con la editorial, el año y los tomos de cada edición](docs/images/catalog-search.png) | ![Una edición recién añadida con la faja amarilla «En tu estantería» sobre la portada, entre otras que se pueden añadir](docs/images/catalog-added.png) |
 
 Las capturas son de la aplicación real y se regeneran con Playwright (`frontend/manga-tracker-web/e2e/screenshots.spec.ts`).
 
@@ -33,7 +33,7 @@ Las capturas son de la aplicación real y se regeneran con Playwright (`frontend
 ## Funcionalidades
 
 * Registro con confirmación por email (y reenvío del enlace), login, cambio y recuperación de contraseña (correos reales con Brevo).
-* Búsqueda de ediciones en Comic Vine, vista previa e importación con todos sus tomos.
+* Búsqueda de ediciones en Comic Vine y alta con un clic: la serie queda en la estantería al momento y sus tomos se descargan en segundo plano.
 * Colecciones por usuario: marcar tomos uno a uno o todos, ver pendientes de todas las colecciones, eliminar colecciones.
 * Sincronización diaria con Comic Vine, por lotes de 100 ediciones, para incorporar tomos nuevos; los anunciados aparecen en «Próximamente».
 * API con errores `ProblemDetails`, rate limiting y health check; frontend responsive.
@@ -223,14 +223,23 @@ El flujo principal de catálogo funciona así:
 ```txt
 El usuario busca una serie
   -> El backend consulta Comic Vine
-  -> El usuario elige una edición concreta
-  -> El backend muestra una vista previa
-  -> El usuario importa la edición
-  -> El backend guarda Series, Edition y Tomes
-  -> Se crea una UserCollection para el usuario autenticado
+  -> El usuario pulsa «Añadir» en la edición que colecciona
+  -> El backend guarda Series y Edition, crea la UserCollection y responde (~1 s)
+  -> Una cola en segundo plano descarga los Tomes (una petición por cada 100)
+  -> La estantería y la serie se recargan solas mientras llegan
   -> El usuario marca los tomos que ya tiene comprados
   -> La aplicación calcula automáticamente los tomos pendientes
 ```
+
+### Añadir sin esperar
+
+Antes, añadir una serie larga dejaba al usuario varios segundos delante de un diálogo mientras se descargaban sus tomos, a una petición por segundo. Ahora la petición solo guarda la serie y la edición; los tomos los descarga [`TomeImportBackgroundService`](src/MangaTracker.Infrastructure/BackgroundJobs/TomeImportQueue.cs), que lee de un `Channel<Guid>`:
+
+* La respuesta lleva `tomesPending`, y la estantería y el detalle llevan `isImporting`. Mientras alguna serie se está descargando, esas páginas se recargan cada 3 segundos; cuando termina, dejan de hacerlo.
+* Si la edición ya estaba completa porque otro usuario la colecciona, no se encola nada: se añade al instante.
+* Pedir dos veces la misma edición mientras se descarga no la encola dos veces.
+* La cola vive en memoria a propósito. Si la API se reinicia a mitad, la edición se queda con menos tomos de los que tiene en Comic Vine, y eso es justo lo que la sincronización diaria detecta y completa. No hace falta una cola persistente para no perder nada.
+* En el buscador cada resultado tiene su botón y su estado (añadiendo, error con reintento, en tu estantería), así que se pueden añadir varias series seguidas sin cerrar nada.
 
 El frontend nunca llama directamente a Comic Vine. Todas las llamadas pasan por el backend.
 
@@ -247,18 +256,19 @@ Esto permite:
 Las ediciones son compartidas: si diez usuarios coleccionan la misma edición de One Piece, hay una sola edición en la base de datos. Por eso la sincronización no la dispara cada usuario, sino un proceso en segundo plano ([`SyncCatalogHandler`](src/MangaTracker.Application/Catalog/SyncCatalog/SyncCatalogHandler.cs)) que se ejecuta poco después de arrancar la API y luego cada 24 horas (`CatalogSync:IntervalHours`):
 
 1. Lee todas las ediciones que colecciona al menos un usuario, con cuántos tomos tiene guardados cada una (una consulta).
-2. Pregunta a Comic Vine cuántos tomos tiene cada volumen, **100 volúmenes por petición** (`volumes/?filter=id:1|2|3…&field_list=id,count_of_issues`).
-3. Solo las ediciones con más tomos en Comic Vine que en la base de datos se cargan y piden sus tomos nuevos (una petición por cada 100 tomos). Así también se completan las importaciones que se quedaron a medias.
-4. Cada edición se guarda por separado: un fallo no pierde las anteriores. Si Comic Vine cae a mitad, se para y lo que falte se hace en la siguiente pasada.
+2. Pide a Comic Vine la ficha de cada volumen, **100 volúmenes por petición** (`volumes/?filter=id:1|2|3…`). Esa misma respuesta trae el número de tomos, el nombre, la editorial y la portada, así que también refresca los datos de la edición sin pedirlos aparte.
+3. Si alguna edición tiene más tomos en Comic Vine que en la base de datos, una sola petición trae **los tomos nuevos de todas ellas**: `issues/?filter=volume:1|2|3,date_added:<última pasada>|…`. No hace falta pedir edición por edición.
+4. Si a una edición le siguen faltando tomos (una importación que se cortó, o tomos añadidos antes de la última pasada), se descargan los suyos completos. Es el caso raro, no el habitual.
+5. Cada edición se guarda por separado: un fallo no pierde las anteriores. Si Comic Vine cae a mitad, se para y lo que falte se hace en la siguiente pasada.
 
-Con 1.000 ediciones y ninguna novedad, una pasada cuesta **10 peticiones**. La sincronización por usuario que había antes costaba una petición por edición y visita, con un tope de 5 ediciones por visita.
+Con 1.000 ediciones y ninguna novedad, una pasada cuesta **10 peticiones**. Si 30 de ellas tienen tomos nuevos, **11**. La sincronización por usuario que había antes costaba una petición por edición y visita, con un tope de 5 ediciones por visita.
 
 No se usa el `date_last_updated` de Comic Vine para detectar novedades: [no cambia cuando se añade un tomo a un volumen](https://comicvine.gamespot.com/forums/api-developers-2334/) (comprobado: el volumen de One Piece tiene 116 tomos y su fecha de actualización es de 2019).
 
 ```txt
 Comic Vine añade el tomo 116 de One Piece.
 La siguiente pasada ve 116 tomos en Comic Vine y 115 guardados.
-Solo esa edición pide sus tomos nuevos.
+La petición de tomos añadidos desde la última pasada trae el 116.
 El tomo 116 aparece en «Me faltan» de todos los que la coleccionan.
 ```
 
@@ -266,7 +276,11 @@ Los tomos anunciados con fecha de venta futura aparecen en «Me faltan» bajo **
 
 ### Caché de Comic Vine
 
-La ficha de un volumen se guarda 10 minutos en memoria y cada búsqueda 30: la vista previa y la importación que viene justo después ya no piden lo mismo dos veces, y las búsquedas repetidas no gastan peticiones. La sincronización no depende de la caché, porque compara recuentos de tomos que pide siempre en el momento.
+La ficha de un volumen se guarda 10 minutos en memoria y cada búsqueda 30: las búsquedas repetidas no gastan peticiones. La sincronización no depende de la caché, porque compara recuentos de tomos que pide siempre en el momento.
+
+### Portadas
+
+Comic Vine sirve cada portada en varios tamaños que solo cambian en un segmento de la URL. Aquí ninguna se muestra a más de ~200 px de ancho, así que se usa `scale_small` (458×640, unos 65 KB), que se ve nítida en pantallas 2x y pesa la mitad que `scale_medium` y una décima parte que `original`. El backend la elige al guardar, y un [pipe de Angular](frontend/manga-tracker-web/src/app/shared/pipes/cover.pipe.ts) reescribe también las URLs que se guardaron antes de este cambio.
 
 ## Autenticación y correos
 
@@ -330,7 +344,6 @@ El backend aplica rate limiting en endpoints que pueden consumir recursos extern
 Ejemplos:
 
 * Búsqueda en catálogo.
-* Vista previa de volúmenes.
 * Importación desde Comic Vine.
 
 Esto ayuda a proteger la API y a no abusar de Comic Vine. Además, el cliente de Comic Vine respeta por su cuenta el ritmo que exige el proveedor (una petición por segundo para todo el proceso), con independencia de cuántos usuarios haya.
@@ -367,9 +380,9 @@ La interfaz parte del objeto que gestiona: una estantería de tomos físicos.
 * **La faja (*obi*).** Los tomos japoneses llevan una banda de papel; aquí es amarilla y significa una sola cosa: *lo tengo*. Aparece en los tomos comprados, con su número, y en las barras de progreso de cada serie. Los tomos que faltan se ven atenuados, con el número en una faja blanca para que la secuencia se lea igual.
 * **La estantería es la interfaz.** En una serie, cada portada es un botón: un clic marca o desmarca el tomo. Sin tarjetas con botones por tomo ni selectores; los filtros "Todos / Me faltan / Los tengo" muestran su recuento.
 * **Me faltan** agrupa por serie y destaca *el siguiente* tomo que toca comprar; marcar uno se puede deshacer.
-* **Añadir serie** destaca la editorial, el año y el número de tomos, que es lo que distingue una edición de otra con el mismo título; la vista previa se abre en un `<dialog>` nativo.
+* **Añadir serie** destaca la editorial, el año y el número de tomos, que es lo que distingue una edición de otra con el mismo título. Cada resultado se añade con su propio botón, sin diálogos ni esperas, y al entrar en la estantería su portada se pone la faja amarilla.
 * **Tipografía y color:** *Dela Gothic One* solo para títulos y números de tomo, *Zen Kaku Gothic New* para el texto; tinta índigo sobre el gris de una pared de estantería. Los colores y medidas son variables CSS en [`styles.scss`](frontend/manga-tracker-web/src/styles.scss).
-* **Textos desde el lado del usuario:** "Estantería", "Me faltan", "Lo tengo", "Añadir a mi estantería", en lugar de "colecciones", "pendientes" o "importar".
+* **Textos desde el lado del usuario:** "Estantería", "Me faltan", "Lo tengo", "Añadir", "Ver en mi estantería", en lugar de "colecciones", "pendientes" o "importar".
 
 ### Implementación
 

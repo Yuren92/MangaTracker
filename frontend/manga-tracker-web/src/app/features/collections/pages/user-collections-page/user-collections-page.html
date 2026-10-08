@@ -30,7 +30,7 @@
             @if (collection.imageUrl) {
               <img
                 class="cover"
-                [src]="collection.imageUrl"
+                [src]="collection.imageUrl | cover"
                 [alt]="'Portada de ' + collection.title"
                 loading="lazy"
                 decoding="async"
@@ -42,12 +42,14 @@
             <h2>{{ collection.title }}</h2>
             <p class="publisher">{{ collection.publisherName ?? 'Editorial desconocida' }}</p>
 
-            <div class="obi-progress" aria-hidden="true">
+            <div class="obi-progress" [class.importing]="collection.isImporting" aria-hidden="true">
               <span [style.width.%]="progress(collection)"></span>
             </div>
 
             <p class="count">
-              @if (collection.pendingTomes === 0 && collection.totalTomes > 0) {
+              @if (collection.isImporting) {
+                Descargando los tomos…
+              } @else if (collection.pendingTomes === 0 && collection.totalTomes > 0) {
                 <strong>Completa</strong> · {{ collection.totalTomes | tomes }}
               } @else {
                 <strong>{{ collection.ownedTomes }}</strong> de {{ collection.totalTomes | tomes }}

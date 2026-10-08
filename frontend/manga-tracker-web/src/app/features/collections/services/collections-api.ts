@@ -12,6 +12,9 @@ import {
   UserCollectionDetail
 } from '../models/collections.models';
 
+// How often a page re-reads a series whose tomes are still being downloaded.
+export const IMPORT_POLL_MS = 3000;
+
 @Injectable({
   providedIn: 'root'
 })
