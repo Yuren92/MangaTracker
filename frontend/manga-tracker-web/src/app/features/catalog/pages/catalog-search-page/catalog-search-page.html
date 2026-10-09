@@ -2,7 +2,7 @@
   <header class="page-head">
     <div>
       <h1 class="page-title">Añadir serie</h1>
-      <p class="lede">Busca la obra y elige la edición que coleccionas: cada editorial tiene la suya.</p>
+      <p class="lede">Busca la obra y añade la edición que coleccionas: cada editorial tiene la suya.</p>
     </div>
   </header>
 
@@ -24,6 +24,8 @@
 
   <app-alert type="error" [message]="searchError()" />
 
+  <p class="visually-hidden" role="status">{{ announcement() }}</p>
+
   @if (searchedFor() && !isSearching() && results().length === 0 && !searchError()) {
     <div class="empty">
       <h2>Nada para «{{ searchedFor() }}»</h2>
@@ -38,91 +40,54 @@
 
     <ul class="editions" role="list">
       @for (item of results(); track item.comicVineVolumeId) {
-        <li>
-          @if (collectionIdFor(item); as collectionId) {
-            <a class="edition on-shelf" [routerLink]="['/collections', collectionId]">
-              <ng-container *ngTemplateOutlet="edition; context: { $implicit: item }" />
-              <span class="badge">En tu estantería</span>
-            </a>
-          } @else {
-            <button type="button" class="edition" (click)="openPreview(item)">
-              <ng-container *ngTemplateOutlet="edition; context: { $implicit: item }" />
-            </button>
-          }
+        @let collectionId = collectionIdFor(item);
+        @let addState = addStateFor(item);
+
+        <li class="edition" [class.on-shelf]="collectionId" [class.is-adding]="addState?.status === 'adding'">
+          <div class="cover-wrap">
+            @if (item.imageUrl) {
+              <img class="cover" [src]="item.imageUrl | cover" alt="" loading="lazy" decoding="async" />
+            } @else {
+              <span class="cover-missing">Sin portada</span>
+            }
+
+            <!-- The obi: the yellow band a tome wears once it is on your shelf. -->
+            @if (collectionId) {
+              <span class="obi-band" aria-hidden="true">En tu estantería</span>
+            }
+          </div>
+
+          <h2 class="publisher">{{ item.publisherName ?? 'Editorial desconocida' }}</h2>
+          <p class="edition-title">{{ item.name }}</p>
+          <p class="count">{{ item.startYear ?? 'Año ?' }} · {{ item.countOfIssues | tomes }}</p>
+
+          <div class="action">
+            @if (collectionId) {
+              <a class="link" [routerLink]="['/collections', collectionId]">
+                Ver en mi estantería
+              </a>
+
+              @if (isDownloading(item)) {
+                <p class="note">Descargando los tomos…</p>
+              }
+            } @else {
+              <button
+                type="button"
+                class="btn btn-quiet"
+                [disabled]="addState?.status === 'adding'"
+                (click)="add(item)"
+              >
+                {{ addState?.status === 'adding' ? 'Añadiendo…' : addState?.status === 'error' ? 'Reintentar' : 'Añadir' }}
+                <span class="visually-hidden">{{ item.name }} ({{ item.publisherName ?? 'editorial desconocida' }})</span>
+              </button>
+
+              @if (addErrorFor(item); as message) {
+                <p class="note note-error" role="alert">{{ message }}</p>
+              }
+            }
+          </div>
         </li>
       }
     </ul>
   }
 </section>
-
-<ng-template #edition let-item>
-  @if (item.imageUrl) {
-    <img class="cover" [src]="item.imageUrl" alt="" loading="lazy" decoding="async" />
-  } @else {
-    <span class="cover-missing">Sin portada</span>
-  }
-  <span class="publisher">{{ item.publisherName ?? 'Editorial desconocida' }}</span>
-  <span class="edition-title">{{ item.name }}</span>
-  <span class="count">
-    {{ item.startYear ?? 'Año ?' }} · {{ item.countOfIssues | tomes }}
-  </span>
-</ng-template>
-
-<dialog #previewDialog class="preview" aria-labelledby="preview-title" (close)="previewItem.set(null)">
-  @if (previewItem(); as item) {
-    <button type="button" class="close" aria-label="Cerrar" (click)="closePreview()">×</button>
-
-    <div class="preview-body">
-      @if (item.imageUrl) {
-        <img class="cover" [src]="item.imageUrl" [alt]="'Portada de ' + item.name" />
-      } @else {
-        <div class="cover-missing">Sin portada</div>
-      }
-
-      <div>
-        <p class="publisher">{{ item.publisherName ?? 'Editorial desconocida' }}</p>
-        <h2 id="preview-title">{{ item.name }}</h2>
-        <p class="count">{{ item.startYear ?? 'Año desconocido' }} · {{ item.countOfIssues | tomes }}</p>
-
-        @if (isPreviewLoading()) {
-          <p class="state">Cargando los tomos…</p>
-        }
-
-        <app-alert type="error" [message]="previewError()" />
-
-        @if (preview(); as volume) {
-          @if (volume.issues.length > 0) {
-            <h3>Primeros tomos</h3>
-            <ol class="issue-list">
-              @for (issue of volume.issues.slice(0, 6); track issue.comicVineIssueId) {
-                <li>
-                  <span class="issue-number">{{ issue.issueNumber || '·' }}</span>
-                  {{ issue.title ?? 'Sin título' }}
-                </li>
-              }
-            </ol>
-          }
-
-          <app-alert type="error" [message]="addError()" />
-
-          @if (addResult(); as added) {
-            <div class="added" role="status">
-              <span>{{ added.message }}</span>
-              <a class="btn" [routerLink]="['/collections', added.collectionId]" (click)="closePreview()">
-                Ver en mi estantería
-              </a>
-            </div>
-          } @else if (previewCollectionId(); as collectionId) {
-            <a class="btn" [routerLink]="['/collections', collectionId]" (click)="closePreview()">
-              Ya está en tu estantería
-            </a>
-          } @else {
-            <button type="button" class="btn" [disabled]="isAdding()" (click)="addToShelf()">
-              {{ isAdding() ? 'Añadiendo los tomos…' : 'Añadir a mi estantería' }}
-            </button>
-          }
-        }
-      </div>
-    </div>
-  }
-</dialog>

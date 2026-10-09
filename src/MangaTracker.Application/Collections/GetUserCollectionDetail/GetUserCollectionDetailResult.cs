@@ -9,7 +9,9 @@ public sealed record GetUserCollectionDetailResult(
     int TotalTomes,
     int OwnedTomes,
     int PendingTomes,
-    IReadOnlyCollection<TomeDetailResult> Tomes);
+    IReadOnlyCollection<TomeDetailResult> Tomes,
+    // True while the edition's tomes are still being downloaded after it was added.
+    bool IsImporting = false);
 
 public sealed record TomeDetailResult(
     Guid TomeId,

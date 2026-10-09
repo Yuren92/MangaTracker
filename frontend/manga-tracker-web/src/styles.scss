@@ -328,6 +328,28 @@ a {
   }
 }
 
+/* Tomes still on their way from Comic Vine: the band has no length yet, so it shows
+   diagonal stripes sliding along instead of a percentage. */
+.obi-progress.importing {
+  background: repeating-linear-gradient(-45deg, var(--line) 0 8px, var(--ok-soft) 8px 16px);
+  background-size: 22.63px 100%;
+  animation: importing 900ms linear infinite;
+
+  span {
+    display: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+@keyframes importing {
+  to {
+    background-position: 22.63px 0;
+  }
+}
+
 .count {
   font-variant-numeric: tabular-nums;
   color: var(--ink-soft);

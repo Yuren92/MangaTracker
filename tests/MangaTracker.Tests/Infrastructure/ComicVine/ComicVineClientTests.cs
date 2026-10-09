@@ -107,7 +107,7 @@ public sealed class ComicVineClientTests
             { "results": [
               { "id": 1, "name": "Berserk", "publisher": { "name": "Dark Horse" }, "count_of_issues": 41,
                 "start_year": "2003", "deck": "Dark fantasy.",
-                "image": { "thumb_url": "https://img/thumb.jpg", "medium_url": "https://img/medium.jpg", "original_url": "https://img/original.jpg" },
+                "image": { "thumb_url": "https://img/thumb.jpg", "small_url": "https://img/small.jpg", "medium_url": "https://img/medium.jpg", "original_url": "https://img/original.jpg" },
                 "api_detail_url": "https://comicvine.gamespot.com/api/volume/4050-1/" },
               { "id": 2, "name": "No API url", "start_year": "n/a" }
             ] }
@@ -121,7 +121,7 @@ public sealed class ComicVineClientTests
         volume.PublisherName.Should().Be("Dark Horse");
         volume.CountOfIssues.Should().Be(41);
         volume.StartYear.Should().Be(2003);
-        volume.ImageUrl.Should().Be("https://img/medium.jpg", "covers are shown small, so the multi-megabyte original is not used");
+        volume.ImageUrl.Should().Be("https://img/small.jpg", "458x640 px is sharp for covers shown at most ~200 px wide");
 
         var query = handler.Requests.Single().Query;
         query.Should().Contain("query=berserk&").And.Contain("limit=50").And.Contain("resources=volume")
@@ -190,30 +190,56 @@ public sealed class ComicVineClientTests
     }
 
     [Fact]
-    public async Task GetVolumeIssueCountsAsync_should_ask_for_up_to_100_volumes_per_request()
+    public async Task GetVolumeSummariesAsync_should_ask_for_up_to_100_volumes_per_request()
     {
         var handler = new RecordingHandler(request =>
         {
             // Answer with every requested id: "filter=id:1|2|3..." (the "|" may arrive escaped).
             var filter = Uri.UnescapeDataString(request.RequestUri!.Query).Split("filter=id:")[1].Split('&')[0];
-            var results = string.Join(",", filter.Split('|').Select(id => $$"""{ "id": {{id}}, "count_of_issues": {{int.Parse(id) * 2}} }"""));
+            var results = string.Join(",", filter.Split('|').Select(id =>
+                $$"""{ "id": {{id}}, "name": "Volume {{id}}", "publisher": { "name": "Panini" }, "count_of_issues": {{int.Parse(id) * 2}} }"""));
             return Json($$"""{ "status_code": 1, "results": [{{results}}] }""");
         });
 
-        var counts = await CreateClient(handler).GetVolumeIssueCountsAsync([.. Enumerable.Range(1, 150), 1]);
+        var summaries = await CreateClient(handler).GetVolumeSummariesAsync([.. Enumerable.Range(1, 150), 1]);
 
-        counts.Should().HaveCount(150, "duplicates are asked for once");
-        counts[7].Should().Be(14);
+        summaries.Should().HaveCount(150, "duplicates are asked for once");
+        var seventh = summaries.Single(summary => summary.ComicVineVolumeId == 7);
+        seventh.CountOfIssues.Should().Be(14);
+        seventh.Name.Should().Be("Volume 7");
+        seventh.PublisherName.Should().Be("Panini");
         handler.Requests.Should().HaveCount(2, "150 volumes fit in two pages of 100");
         handler.Requests.Should().AllSatisfy(request =>
         {
             request.AbsolutePath.Should().Be("/api/volumes/");
-            request.Query.Should().Contain("field_list=id,count_of_issues");
+            request.Query.Should().Contain("count_of_issues").And.NotContain("description", "the batched list skips the heavy fields");
         });
     }
 
     [Fact]
-    public async Task A_volume_previewed_and_then_imported_should_be_fetched_once()
+    public async Task GetIssuesAddedSinceAsync_should_filter_several_volumes_by_date_added_in_one_request()
+    {
+        const string json = """
+            { "status_code": 1, "number_of_total_results": 2, "results": [
+              { "id": 501, "issue_number": "12", "api_detail_url": "https://comicvine.gamespot.com/api/issue/4000-501/", "volume": { "id": 7 } },
+              { "id": 502, "issue_number": "40", "api_detail_url": "https://comicvine.gamespot.com/api/issue/4000-502/", "volume": { "id": 9 } }
+            ] }
+            """;
+        var handler = new RecordingHandler(_ => Json(json));
+
+        var issues = await CreateClient(handler).GetIssuesAddedSinceAsync(
+            [7, 9], new DateTimeOffset(2026, 10, 1, 8, 30, 0, TimeSpan.Zero));
+
+        issues.Select(issue => (issue.ComicVineIssueId, issue.ComicVineVolumeId))
+            .Should().Equal((501, 7), (502, 9));
+
+        var query = Uri.UnescapeDataString(handler.Requests.Single().Query);
+        query.Should().Contain("filter=volume:7|9,date_added:2026-10-01 08:30:00|")
+            .And.Contain("field_list=").And.Contain(",volume");
+    }
+
+    [Fact]
+    public async Task A_volume_read_twice_in_a_row_should_be_fetched_once()
     {
         var handler = new RecordingHandler();
         var client = CreateClient(handler);

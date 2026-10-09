@@ -50,7 +50,8 @@ public sealed class EditionRepository : IEditionRepository
             .Select(edition => new EditionSyncCandidate(
                 edition.Id,
                 edition.ComicVineVolumeId,
-                edition.Tomes.Count))
+                edition.Tomes.Count,
+                edition.LastSyncedAt ?? edition.ImportedAt))
             .ToListAsync(cancellationToken);
     }
 

@@ -50,7 +50,7 @@
             <li class="tome" [class.next]="first">
               <div class="tome-cover">
                 @if (tome.imageUrl) {
-                  <img class="cover" [src]="tome.imageUrl" alt="" loading="lazy" decoding="async" />
+                  <img class="cover" [src]="tome.imageUrl | cover" alt="" loading="lazy" decoding="async" />
                 } @else {
                   <span class="cover-missing">Sin portada</span>
                 }

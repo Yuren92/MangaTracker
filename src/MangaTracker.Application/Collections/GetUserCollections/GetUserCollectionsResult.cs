@@ -13,4 +13,6 @@ public sealed record UserCollectionListItemResult(
     string? ImageUrl,
     int TotalTomes,
     int OwnedTomes,
-    int PendingTomes);
+    int PendingTomes,
+    // True while the edition's tomes are still being downloaded after it was added.
+    bool IsImporting = false);

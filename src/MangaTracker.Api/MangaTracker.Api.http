@@ -25,15 +25,6 @@ Authorization: Bearer {{token}}
 GET {{host}}/api/catalog/search?query=berserk&limit=5
 Authorization: Bearer {{token}}
 
-### Preview a volume before importing it
-POST {{host}}/api/catalog/comic-vine/volumes/preview
-Authorization: Bearer {{token}}
-Content-Type: application/json
-
-{
-  "apiDetailUrl": "https://comicvine.gamespot.com/api/volume/4050-18166/"
-}
-
 ### Import a volume into my collections
 POST {{host}}/api/collections/import-comic-vine-volume
 Authorization: Bearer {{token}}

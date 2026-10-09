@@ -11,6 +11,8 @@ export interface ImportComicVineVolumeResponse {
   totalIssues: number;
   importedTomes: number;
   isCompleted: boolean;
+  // True while the tomes are still being downloaded in the background.
+  tomesPending: boolean;
 }
 
 export interface UserCollectionSummary {
@@ -24,6 +26,8 @@ export interface UserCollectionSummary {
   totalTomes: number;
   ownedTomes: number;
   pendingTomes: number;
+  // True while the tomes are still being downloaded after the series was added.
+  isImporting: boolean;
 }
 
 export interface GetUserCollectionsResponse {
@@ -40,6 +44,7 @@ export interface UserCollectionDetail {
   ownedTomes: number;
   pendingTomes: number;
   tomes: UserCollectionTome[];
+  isImporting: boolean;
 }
 
 export interface UserCollectionTome {

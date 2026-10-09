@@ -13,9 +13,10 @@ public interface IComicVineClient
         string apiDetailUrl,
         CancellationToken cancellationToken = default);
 
-    // How many issues Comic Vine lists for each volume, read for up to 100 volumes per
-    // request. Volumes Comic Vine no longer has are left out of the result.
-    Task<IReadOnlyDictionary<int, int>> GetVolumeIssueCountsAsync(
+    // Name, publisher, cover and issue count of up to 100 volumes per request: enough to
+    // refresh an edition and to tell whether it has new issues. Volumes Comic Vine no
+    // longer has are left out.
+    Task<IReadOnlyCollection<ComicVineVolumeSummaryDto>> GetVolumeSummariesAsync(
         IReadOnlyCollection<int> comicVineVolumeIds,
         CancellationToken cancellationToken = default);
 
@@ -23,5 +24,12 @@ public interface IComicVineClient
     // through the issues list instead of one request per issue.
     Task<IReadOnlyCollection<ComicVineIssueDetailDto>> GetVolumeIssuesAsync(
         int comicVineVolumeId,
+        CancellationToken cancellationToken = default);
+
+    // Issues added to Comic Vine since a date, for several volumes in the same requests
+    // (pages of 100). Each result carries its ComicVineVolumeId.
+    Task<IReadOnlyCollection<ComicVineIssueDetailDto>> GetIssuesAddedSinceAsync(
+        IReadOnlyCollection<int> comicVineVolumeIds,
+        DateTimeOffset since,
         CancellationToken cancellationToken = default);
 }

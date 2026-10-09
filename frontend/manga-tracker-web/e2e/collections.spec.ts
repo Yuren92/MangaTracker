@@ -21,19 +21,21 @@ test('add a series, track owned tomes, undo, and remove it from the shelf', asyn
   expect(search.status()).toBe(200);
 
   // Pick the first result small enough to import quickly. A new user has nothing on
-  // the shelf, so every result is a button in the same order as the response.
+  // the shelf, so every result can be added and they come in the response order.
   const volumes = (await search.json()) as { countOfIssues: number | null }[];
   // At least two tomes: one gets marked and another must still be missing.
   const index = volumes.findIndex(volume => (volume.countOfIssues ?? 0) >= 2 && volume.countOfIssues! <= maxIssues);
   test.skip(index < 0, `No "${searchTerm}" volume with 2..${maxIssues} issues in the results`);
 
-  await page.locator('button.edition').nth(index).click();
-  await page.getByRole('button', { name: 'Añadir a mi estantería' }).click();
-  await page.getByRole('link', { name: 'Ver en mi estantería' }).click({ timeout: 45_000 });
+  // Adding answers straight away; the tomes are downloaded in the background and
+  // the series page fills in by itself while they arrive.
+  const card = page.locator('li.edition').nth(index);
+  await card.getByRole('button', { name: /^Añadir/ }).click();
+  await card.getByRole('link', { name: 'Ver en mi estantería' }).click({ timeout: 45_000 });
 
   // The series: nothing owned yet, then one tome marked from the shelf.
   const count = page.getByTestId('series-count');
-  await expect(count).toContainText(/^0 de \d+ tomos/);
+  await expect(count).toContainText(/^0 de \d+ tomos/, { timeout: 45_000 });
   const total = Number((await count.innerText()).match(/de (\d+)/)![1]);
   expect(total).toBeGreaterThan(0);
 

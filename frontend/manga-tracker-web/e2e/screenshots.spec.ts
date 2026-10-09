@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { expect, Page, test } from '@playwright/test';
+import { expect, Locator, Page, test } from '@playwright/test';
 import { confirm, login, register } from './support/users';
 import { repoRoot } from './support/paths';
 
@@ -10,7 +10,7 @@ const out = (name: string) => path.join(repoRoot, 'docs', 'images', `${name}.png
 
 // Waits until the page has really settled: no loading message on screen, and every
 // cover downloaded (covers load lazily, so the page is scrolled through first).
-async function shoot(page: Page, name: string, fullPage = false): Promise<void> {
+async function shoot(page: Page, name: string, fullPage = false, focus?: Locator): Promise<void> {
   await expect(page.locator('.state')).toHaveCount(0);
   await page.evaluate(async () => {
     for (let y = 0; y < document.body.scrollHeight; y += 400) {
@@ -21,6 +21,7 @@ async function shoot(page: Page, name: string, fullPage = false): Promise<void> 
   });
   await page.waitForLoadState('networkidle');
   await page.waitForFunction(() => [...document.images].every(image => image.complete));
+  await focus?.evaluate(element => element.scrollIntoView({ block: 'center' }));
   await page.screenshot({ path: out(name), fullPage });
 }
 
@@ -38,9 +39,9 @@ async function search(page: Page, text: string): Promise<{ countOfIssues: number
 }
 
 async function addToShelf(page: Page, index: number): Promise<void> {
-  await page.locator('.edition').nth(index).click();
-  await page.getByRole('button', { name: 'Añadir a mi estantería' }).click();
-  await expect(page.getByRole('link', { name: 'Ver en mi estantería' })).toBeVisible({ timeout: 90_000 });
+  const card = page.locator('li.edition').nth(index);
+  await card.getByRole('button', { name: /^Añadir/ }).click();
+  await expect(card.getByRole('link', { name: 'Ver en mi estantería' })).toBeVisible({ timeout: 90_000 });
 }
 
 const nav = (page: Page, name: string) => page.locator('header.app-header').getByRole('link', { name, exact: true });
@@ -67,12 +68,12 @@ test('README screenshots', async ({ page }) => {
   const index = volumes.findIndex(volume => (volume.countOfIssues ?? 0) >= 6 && volume.countOfIssues! <= 14);
   test.skip(index < 0, 'No small enough volume to import');
 
-  await page.locator('.edition').nth(index).click();
-  await expect(page.getByRole('button', { name: 'Añadir a mi estantería' })).toBeVisible();
-  await shoot(page, 'catalog-preview');
+  // Added in place: the card puts on its obi while the tomes download.
+  await addToShelf(page, index);
+  await shoot(page, 'catalog-added', false, page.locator('li.edition').nth(index));
 
-  await page.getByRole('button', { name: 'Añadir a mi estantería' }).click();
-  await page.getByRole('link', { name: 'Ver en mi estantería' }).click({ timeout: 90_000 });
+  await page.locator('li.edition').nth(index).getByRole('link', { name: 'Ver en mi estantería' }).click();
+  await expect(page.getByTestId('series-count')).toContainText(/^0 de/, { timeout: 90_000 });
 
   // Own the first three tomes so the shelf shows both states.
   const tomes = page.locator('button.tome');
@@ -90,7 +91,6 @@ test('README screenshots', async ({ page }) => {
     await addToShelf(page, plutoIndex);
   }
 
-  await page.keyboard.press('Escape');
   await nav(page, 'Me faltan').click();
   await expect(page.getByRole('button', { name: /^Lo tengo/ }).first()).toBeVisible();
   await shoot(page, 'pending-tomes', true);

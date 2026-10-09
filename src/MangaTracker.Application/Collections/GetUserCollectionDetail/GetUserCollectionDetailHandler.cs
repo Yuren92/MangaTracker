@@ -6,10 +6,14 @@ namespace MangaTracker.Application.Collections.GetUserCollectionDetail;
 public sealed class GetUserCollectionDetailHandler
 {
     private readonly IUserCollectionRepository _userCollectionRepository;
+    private readonly ITomeImportQueue _tomeImportQueue;
 
-    public GetUserCollectionDetailHandler(IUserCollectionRepository userCollectionRepository)
+    public GetUserCollectionDetailHandler(
+        IUserCollectionRepository userCollectionRepository,
+        ITomeImportQueue tomeImportQueue)
     {
         _userCollectionRepository = userCollectionRepository;
+        _tomeImportQueue = tomeImportQueue;
     }
 
     public async Task<GetUserCollectionDetailResult> HandleAsync(
@@ -68,6 +72,7 @@ public sealed class GetUserCollectionDetailHandler
             TotalTomes: totalTomes,
             OwnedTomes: ownedTomes,
             PendingTomes: pendingTomes,
-            Tomes: tomes);
+            Tomes: tomes,
+            IsImporting: _tomeImportQueue.IsPending(collection.EditionId));
     }
 }

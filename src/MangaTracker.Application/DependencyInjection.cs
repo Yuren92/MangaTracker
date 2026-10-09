@@ -6,7 +6,7 @@ using MangaTracker.Application.Auth.LoginUser;
 using MangaTracker.Application.Auth.RegisterUser;
 using MangaTracker.Application.Auth.ResendConfirmationEmail;
 using MangaTracker.Application.Auth.ResetPassword;
-using MangaTracker.Application.Catalog.PreviewComicVineVolume;
+using MangaTracker.Application.Catalog.EditionTomes;
 using MangaTracker.Application.Catalog.SearchCatalog;
 using MangaTracker.Application.Catalog.SyncCatalog;
 using MangaTracker.Application.Collections.DeleteUserCollection;
@@ -42,7 +42,7 @@ public static class DependencyInjection
         services.AddScoped<UnmarkTomeAsOwnedHandler>();
         services.AddScoped<GetPendingTomesHandler>();
         services.AddScoped<SearchCatalogHandler>();
-        services.AddScoped<PreviewComicVineVolumeHandler>();
+        services.AddScoped<EditionTomeImporter>();
         services.AddScoped<ImportComicVineVolumeHandler>();
         services.AddScoped<MarkAllTomesAsOwnedHandler>();
         services.AddScoped<DeleteUserCollectionHandler>();

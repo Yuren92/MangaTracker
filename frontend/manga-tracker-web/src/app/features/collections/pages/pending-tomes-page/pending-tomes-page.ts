@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 
 import { getApiErrorMessage } from '../../../../core/http/api-error';
 import { AppAlert } from '../../../../shared/components/app-alert/app-alert';
+import { CoverPipe } from '../../../../shared/pipes/cover.pipe';
 import { PendingTome } from '../../models/collections.models';
 import { CollectionsApi } from '../../services/collections-api';
 import { localToday, splitByRelease } from './release-split';
@@ -17,7 +18,7 @@ interface PendingSeries {
 
 @Component({
   selector: 'app-pending-tomes-page',
-  imports: [RouterLink, DatePipe, AppAlert],
+  imports: [RouterLink, DatePipe, AppAlert, CoverPipe],
   templateUrl: './pending-tomes-page.html',
   styleUrl: './pending-tomes-page.scss'
 })

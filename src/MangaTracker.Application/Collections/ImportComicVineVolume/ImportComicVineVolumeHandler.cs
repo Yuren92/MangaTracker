@@ -1,10 +1,13 @@
 using MangaTracker.Application.Abstractions;
-using MangaTracker.Application.ComicVine.Dtos;
 using MangaTracker.Application.Common.Exceptions;
 using MangaTracker.Domain.Entities;
 
 namespace MangaTracker.Application.Collections.ImportComicVineVolume;
 
+// Adds a Comic Vine volume to the user's shelf. The request only fetches the volume
+// (often already cached from the search) and stores series, edition and collection;
+// the tomes are downloaded in the background by ITomeImportQueue, so adding a series
+// answers in about a second instead of waiting for every page of issues.
 public sealed class ImportComicVineVolumeHandler
 {
     private const int MaxIssuesPerImport = 250;
@@ -14,6 +17,7 @@ public sealed class ImportComicVineVolumeHandler
     private readonly IEditionRepository _editionRepository;
     private readonly ITomeRepository _tomeRepository;
     private readonly IUserCollectionRepository _userCollectionRepository;
+    private readonly ITomeImportQueue _tomeImportQueue;
     private readonly TimeProvider _timeProvider;
     private readonly IUnitOfWork _unitOfWork;
 
@@ -23,6 +27,7 @@ public sealed class ImportComicVineVolumeHandler
         IEditionRepository editionRepository,
         ITomeRepository tomeRepository,
         IUserCollectionRepository userCollectionRepository,
+        ITomeImportQueue tomeImportQueue,
         TimeProvider timeProvider,
         IUnitOfWork unitOfWork)
     {
@@ -31,6 +36,7 @@ public sealed class ImportComicVineVolumeHandler
         _editionRepository = editionRepository;
         _tomeRepository = tomeRepository;
         _userCollectionRepository = userCollectionRepository;
+        _tomeImportQueue = tomeImportQueue;
         _timeProvider = timeProvider;
         _unitOfWork = unitOfWork;
     }
@@ -75,14 +81,12 @@ public sealed class ImportComicVineVolumeHandler
 
         if (existingEdition is not null)
         {
-            var storedTomes = await _tomeRepository.GetByEditionIdAsync(
-                existingEdition.Id,
-                cancellationToken);
+            var storedTomes = (await _tomeRepository.GetByEditionIdAsync(existingEdition.Id, cancellationToken)).Count;
 
             // Fast path: the edition is already fully imported, so only the user's
             // collection is needed and Comic Vine is not called at all. A partially
             // imported edition does not qualify and falls through to resume the import.
-            if (existingEdition.HasAllTomes(storedTomes.Count))
+            if (existingEdition.HasAllTomes(storedTomes))
             {
                 var collection = await GetOrAddUserCollectionAsync(
                     command.UserId,
@@ -97,9 +101,10 @@ public sealed class ImportComicVineVolumeHandler
                     ComicVineVolumeId: existingEdition.ComicVineVolumeId,
                     Title: existingEdition.Name,
                     PublisherName: existingEdition.PublisherName,
-                    TotalIssues: storedTomes.Count,
-                    ImportedTomes: storedTomes.Count,
-                    IsCompleted: true);
+                    TotalIssues: storedTomes,
+                    ImportedTomes: storedTomes,
+                    IsCompleted: true,
+                    TomesPending: false);
             }
         }
 
@@ -178,57 +183,19 @@ public sealed class ImportComicVineVolumeHandler
             edition.Id,
             cancellationToken);
 
-        var existingTomes = await _tomeRepository.GetByEditionIdAsync(
-            edition.Id,
-            cancellationToken);
-
-        var storedIssueUrls = existingTomes
-            .Select(tome => tome.ComicVineApiDetailUrl)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        // Only issues without a stored tome become new tomes, so running the same
-        // import twice adds nothing and a partial import resumes where it stopped.
-        var missingIssues = volume.Issues
-            .Where(issue => !storedIssueUrls.Contains(issue.ApiDetailUrl))
-            .OrderBy(issue => issue.NormalizedNumber ?? int.MaxValue)
-            .ThenBy(issue => issue.IssueNumber, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        var tomesWithData = volume.Issues.Count - missingIssues.Count;
-
-        // One paged request per 100 issues for the whole volume, and none at all when
-        // nothing is missing.
-        var issueDetails = missingIssues.Count == 0
-            ? new Dictionary<string, ComicVineIssueDetailDto>()
-            : await GetIssueDetailsByUrlAsync(volume.ComicVineVolumeId, cancellationToken);
-
-        foreach (var issueSummary in missingIssues)
-        {
-            if (!issueDetails.TryGetValue(issueSummary.ApiDetailUrl, out var issueDetail)
-                || !storedIssueUrls.Add(issueDetail.ApiDetailUrl))
-            {
-                // Not listed by Comic Vine yet (retried on the next import) or a duplicate.
-                continue;
-            }
-
-            var tome = new Tome(
-                editionId: edition.Id,
-                comicVineIssueId: issueDetail.ComicVineIssueId,
-                comicVineApiDetailUrl: issueDetail.ApiDetailUrl,
-                issueNumber: issueDetail.IssueNumber,
-                normalizedNumber: issueDetail.NormalizedNumber,
-                title: issueDetail.Title,
-                imageUrl: issueDetail.ImageUrl,
-                coverDate: issueDetail.CoverDate,
-                storeDate: issueDetail.StoreDate,
-                siteDetailUrl: issueDetail.SiteDetailUrl);
-
-            await _tomeRepository.AddAsync(tome, cancellationToken);
-
-            tomesWithData++;
-        }
-
+        // The edition must be committed before the background import looks it up.
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        var totalIssues = volume.Issues.Count;
+        var stored = (await _tomeRepository.GetByEditionIdAsync(edition.Id, cancellationToken)).Count;
+
+        if (stored < totalIssues)
+        {
+            await _tomeImportQueue.EnqueueAsync(edition.Id, cancellationToken);
+
+            // Counted again: a queue that imports straight away (as in tests) is done by now.
+            stored = (await _tomeRepository.GetByEditionIdAsync(edition.Id, cancellationToken)).Count;
+        }
 
         return new ImportComicVineVolumeResult(
             EditionId: edition.Id,
@@ -236,20 +203,10 @@ public sealed class ImportComicVineVolumeHandler
             ComicVineVolumeId: volume.ComicVineVolumeId,
             Title: volume.Name,
             PublisherName: volume.PublisherName,
-            TotalIssues: volume.Issues.Count,
-            ImportedTomes: tomesWithData,
-            IsCompleted: tomesWithData == volume.Issues.Count);
-    }
-
-    private async Task<Dictionary<string, ComicVineIssueDetailDto>> GetIssueDetailsByUrlAsync(
-        int comicVineVolumeId,
-        CancellationToken cancellationToken)
-    {
-        var issues = await _comicVineClient.GetVolumeIssuesAsync(comicVineVolumeId, cancellationToken);
-
-        return issues
-            .DistinctBy(issue => issue.ApiDetailUrl, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(issue => issue.ApiDetailUrl, StringComparer.OrdinalIgnoreCase);
+            TotalIssues: totalIssues,
+            ImportedTomes: stored,
+            IsCompleted: stored >= totalIssues,
+            TomesPending: _tomeImportQueue.IsPending(edition.Id));
     }
 
     private async Task<UserCollection> GetOrAddUserCollectionAsync(

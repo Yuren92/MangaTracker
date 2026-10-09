@@ -6,10 +6,14 @@ namespace MangaTracker.Application.Collections.GetUserCollections;
 public sealed class GetUserCollectionsHandler
 {
     private readonly ICollectionQueries _collectionQueries;
+    private readonly ITomeImportQueue _tomeImportQueue;
 
-    public GetUserCollectionsHandler(ICollectionQueries collectionQueries)
+    public GetUserCollectionsHandler(
+        ICollectionQueries collectionQueries,
+        ITomeImportQueue tomeImportQueue)
     {
         _collectionQueries = collectionQueries;
+        _tomeImportQueue = tomeImportQueue;
     }
 
     public async Task<GetUserCollectionsResult> HandleAsync(
@@ -25,6 +29,8 @@ public sealed class GetUserCollectionsHandler
             query.UserId,
             cancellationToken);
 
-        return new GetUserCollectionsResult(items);
+        return new GetUserCollectionsResult(items
+            .Select(item => item with { IsImporting = _tomeImportQueue.IsPending(item.EditionId) })
+            .ToList());
     }
 }

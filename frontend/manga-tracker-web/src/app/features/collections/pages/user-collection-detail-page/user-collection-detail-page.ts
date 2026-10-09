@@ -1,18 +1,19 @@
 import { DatePipe } from '@angular/common';
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
 import { getApiErrorMessage } from '../../../../core/http/api-error';
 import { AppAlert } from '../../../../shared/components/app-alert/app-alert';
+import { CoverPipe } from '../../../../shared/pipes/cover.pipe';
 import { TomesPipe } from '../../../../shared/pipes/tomes.pipe';
 import { UserCollectionDetail, UserCollectionTome } from '../../models/collections.models';
-import { CollectionsApi } from '../../services/collections-api';
+import { CollectionsApi, IMPORT_POLL_MS } from '../../services/collections-api';
 
 type TomeFilter = 'all' | 'missing' | 'owned';
 
 @Component({
   selector: 'app-user-collection-detail-page',
-  imports: [RouterLink, DatePipe, AppAlert, TomesPipe],
+  imports: [RouterLink, DatePipe, AppAlert, CoverPipe, TomesPipe],
   templateUrl: './user-collection-detail-page.html',
   styleUrl: './user-collection-detail-page.scss'
 })
@@ -20,6 +21,7 @@ export class UserCollectionDetailPage implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly collectionsApi = inject(CollectionsApi);
+  private pollTimer: ReturnType<typeof setTimeout> | undefined;
 
   readonly collection = signal<UserCollectionDetail | null>(null);
   readonly isLoading = signal(true);
@@ -51,6 +53,10 @@ export class UserCollectionDetailPage implements OnInit {
     }
   });
 
+  constructor() {
+    inject(DestroyRef).onDestroy(() => clearTimeout(this.pollTimer));
+  }
+
   ngOnInit(): void {
     const collectionId = this.route.snapshot.paramMap.get('collectionId');
 
@@ -60,16 +66,7 @@ export class UserCollectionDetailPage implements OnInit {
       return;
     }
 
-    this.collectionsApi.getCollectionDetail(collectionId).subscribe({
-      next: collection => {
-        this.collection.set(collection);
-        this.isLoading.set(false);
-      },
-      error: error => {
-        this.errorMessage.set(getApiErrorMessage(error, 'No se ha podido cargar la serie.'));
-        this.isLoading.set(false);
-      }
-    });
+    this.loadCollection(collectionId);
   }
 
   tomeLabel(tome: UserCollectionTome): string {
@@ -165,6 +162,31 @@ export class UserCollectionDetailPage implements OnInit {
       error: error => {
         this.errorMessage.set(getApiErrorMessage(error, 'No se ha podido quitar la serie.'));
         this.isDeleting.set(false);
+      }
+    });
+  }
+
+  // A series added moments ago may still be downloading its tomes; while it is, the
+  // page re-reads it every few seconds so they appear as they arrive. A reload that
+  // lands while a tome is being marked is skipped, so it cannot undo that click.
+  private loadCollection(collectionId: string): void {
+    this.collectionsApi.getCollectionDetail(collectionId).subscribe({
+      next: collection => {
+        const isBusy = this.updatingTomeIds().size > 0 || this.isMarkingAll();
+
+        if (!isBusy || !this.collection()) {
+          this.collection.set(collection);
+        }
+
+        this.isLoading.set(false);
+
+        if (collection.isImporting || isBusy) {
+          this.pollTimer = setTimeout(() => this.loadCollection(collectionId), IMPORT_POLL_MS);
+        }
+      },
+      error: error => {
+        this.errorMessage.set(getApiErrorMessage(error, 'No se ha podido cargar la serie.'));
+        this.isLoading.set(false);
       }
     });
   }

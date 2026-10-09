@@ -18,7 +18,8 @@ public sealed class ComicVineClient : IComicVineClient
     // Comic Vine's maximum page size for list resources.
     private const int PageSize = 100;
 
-    // Safety cap for paging; imports reject volumes with more than 250 issues anyway.
+    // Safety cap for paging one list of issues; imports reject volumes with more than
+    // 250 issues, and a day's new issues across 100 volumes are far fewer.
     private const int MaxIssuesPerVolume = 1000;
 
     // field_list keeps responses to what is mapped below; a full issue or volume also
@@ -29,13 +30,18 @@ public sealed class ComicVineClient : IComicVineClient
     private const string VolumeFields =
         "id,name,publisher,count_of_issues,image,start_year,description,site_detail_url,api_detail_url,issues";
 
+    private const string VolumeSummaryFields =
+        "id,name,publisher,count_of_issues,image,start_year,site_detail_url";
+
+    // "volume" tells apart the issues of a list that covers several volumes.
     private const string IssueFields =
-        "id,issue_number,name,image,cover_date,store_date,site_detail_url,api_detail_url";
+        "id,issue_number,name,image,cover_date,store_date,site_detail_url,api_detail_url,volume";
 
     // Short-lived cache for what users ask for repeatedly: the same search typed by many
-    // people, and a volume previewed and then added a moment later (which used to fetch
-    // it twice). Long enough to save those requests, short enough that new issues show
-    // up within minutes; the daily catalog sync compares issue counts, not cached data.
+    // people, and a volume added again a moment later (a retry, or a second reader adding
+    // it while its tomes still download). Long enough to save those requests, short
+    // enough that new issues show up within minutes; the daily catalog sync compares
+    // issue counts, not cached data.
     private static readonly TimeSpan SearchCacheDuration = TimeSpan.FromMinutes(30);
     private static readonly TimeSpan VolumeCacheDuration = TimeSpan.FromMinutes(10);
 
@@ -79,11 +85,11 @@ public sealed class ComicVineClient : IComicVineClient
         return results;
     }
 
-    public async Task<IReadOnlyDictionary<int, int>> GetVolumeIssueCountsAsync(
+    public async Task<IReadOnlyCollection<ComicVineVolumeSummaryDto>> GetVolumeSummariesAsync(
         IReadOnlyCollection<int> comicVineVolumeIds,
         CancellationToken cancellationToken = default)
     {
-        var counts = new Dictionary<int, int>();
+        var summaries = new List<ComicVineVolumeSummaryDto>();
 
         // Comic Vine filters accept several values separated by "|", so one request
         // covers up to a full page of volumes.
@@ -93,23 +99,45 @@ public sealed class ComicVineClient : IComicVineClient
                       $"?api_key={Uri.EscapeDataString(_options.ApiKey)}" +
                       "&format=json" +
                       $"&filter=id:{string.Join('|', batch)}" +
-                      "&field_list=id,count_of_issues" +
+                      $"&field_list={VolumeSummaryFields}" +
                       $"&limit={PageSize}";
 
             var response = await GetComicVineResponseAsync<ComicVineListResponse<ComicVineVolumeResource>>(
                 url,
                 cancellationToken);
 
-            foreach (var volume in response?.Results ?? [])
-            {
-                if (volume.Id > 0 && volume.CountOfIssues is int count)
-                {
-                    counts[volume.Id] = count;
-                }
-            }
+            summaries.AddRange((response?.Results ?? [])
+                .Where(volume => volume.Id > 0 && volume.CountOfIssues is not null)
+                .Select(volume => new ComicVineVolumeSummaryDto(
+                    ComicVineVolumeId: volume.Id,
+                    Name: volume.Name ?? string.Empty,
+                    PublisherName: volume.Publisher?.Name,
+                    CountOfIssues: volume.CountOfIssues!.Value,
+                    ImageUrl: GetBestImageUrl(volume.Image),
+                    StartYear: ParseYear(volume.StartYear),
+                    SiteDetailUrl: volume.SiteDetailUrl)));
         }
 
-        return counts;
+        return summaries;
+    }
+
+    public async Task<IReadOnlyCollection<ComicVineIssueDetailDto>> GetIssuesAddedSinceAsync(
+        IReadOnlyCollection<int> comicVineVolumeIds,
+        DateTimeOffset since,
+        CancellationToken cancellationToken = default)
+    {
+        var issues = new List<ComicVineIssueDetailDto>();
+
+        // date_added takes a "start|end" range; the end is far enough to never cut off.
+        var dateRange = $"{since.UtcDateTime:yyyy-MM-dd HH:mm:ss}|{since.UtcDateTime.AddYears(50):yyyy-MM-dd HH:mm:ss}";
+
+        foreach (var batch in comicVineVolumeIds.Where(id => id > 0).Distinct().Chunk(PageSize))
+        {
+            var filter = $"volume:{string.Join('|', batch)},date_added:{dateRange}";
+            issues.AddRange(await GetIssuePagesAsync(filter, cancellationToken));
+        }
+
+        return issues;
     }
 
     private async Task<IReadOnlyCollection<ComicVineVolumeSearchResultDto>> FetchSearchAsync(
@@ -226,16 +254,23 @@ public sealed class ComicVineClient : IComicVineClient
             return [];
         }
 
+        return await GetIssuePagesAsync($"volume:{comicVineVolumeId}", cancellationToken);
+    }
+
+    // The issues list returns at most 100 results per page; the matching issues are
+    // read page by page until Comic Vine reports no more (or the safety cap is hit).
+    private async Task<IReadOnlyCollection<ComicVineIssueDetailDto>> GetIssuePagesAsync(
+        string filter,
+        CancellationToken cancellationToken)
+    {
         var issues = new List<ComicVineIssueDetailDto>();
 
-        // The issues list returns at most 100 results per page; the volume's issues are
-        // read page by page until Comic Vine reports no more (or the safety cap is hit).
         for (var offset = 0; offset < MaxIssuesPerVolume; offset += PageSize)
         {
             var url = "issues/" +
                       $"?api_key={Uri.EscapeDataString(_options.ApiKey)}" +
                       "&format=json" +
-                      $"&filter=volume:{comicVineVolumeId}" +
+                      $"&filter={filter}" +
                       $"&field_list={IssueFields}" +
                       $"&limit={PageSize}" +
                       $"&offset={offset}";
@@ -260,7 +295,8 @@ public sealed class ComicVineClient : IComicVineClient
                     CoverDate: ParseDateOnly(issue.CoverDate),
                     StoreDate: ParseDateOnly(issue.StoreDate),
                     SiteDetailUrl: issue.SiteDetailUrl,
-                    ApiDetailUrl: issue.ApiDetailUrl!)));
+                    ApiDetailUrl: issue.ApiDetailUrl!,
+                    ComicVineVolumeId: issue.Volume?.Id)));
 
             if (offset + page.Results.Count >= page.NumberOfTotalResults)
             {
@@ -393,17 +429,17 @@ public sealed class ComicVineClient : IComicVineClient
         }
     }
 
-    // Covers are shown as cards and thumbnails, so a medium rendition is enough. The
-    // original scan can weigh several megabytes, which on a page with a hundred pending
-    // tomes means hundreds of megabytes; it is only a last resort.
+    // Covers are shown at most about 200 px wide. Measured on a real cover: small is
+    // 458x640 px and 65 KB (sharp even on 2x screens), medium 687x960 px and 130 KB,
+    // original 600+ KB. thumb (114x160 px) would be blurry, so it is only a fallback.
     private static string? GetBestImageUrl(ComicVineImageResource? image)
     {
-        return image?.MediumUrl
-            ?? image?.ScreenLargeUrl
+        return image?.SmallUrl
+            ?? image?.MediumUrl
             ?? image?.ScreenUrl
+            ?? image?.ScreenLargeUrl
             ?? image?.SuperUrl
             ?? image?.OriginalUrl
-            ?? image?.SmallUrl
             ?? image?.ThumbUrl
             ?? image?.IconUrl
             ?? image?.TinyUrl;
@@ -511,10 +547,16 @@ public sealed class ComicVineClient : IComicVineClient
 
         [JsonPropertyName("api_detail_url")]
         public string? ApiDetailUrl { get; init; }
+
+        [JsonPropertyName("volume")]
+        public ComicVineNamedResource? Volume { get; init; }
     }
 
     private sealed class ComicVineNamedResource
     {
+        [JsonPropertyName("id")]
+        public int Id { get; init; }
+
         [JsonPropertyName("name")]
         public string? Name { get; init; }
     }
